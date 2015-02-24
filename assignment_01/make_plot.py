@@ -21,6 +21,8 @@ def read_data():
 	alfa = alfa[0]
 	tau = [float(x) for x in fin.readline().split()]		# read third line
 	tau = tau[0]
+	tau = [float(x) for x in fin.readline().split()]		# read third line
+	omega = omega[0]
 	dU = [float(x) for x in fin.readline().split()]			# read third line
 	dU = dU[0]
 	L = [float(x) for x in fin.readline().split()]			# read third line
@@ -32,7 +34,7 @@ def read_data():
 	maximum = max(data)
 	data = np.reshape(data, (dim1, dim2))
 	fin.close()
-	return (data, dim1, dim2, dt, alfa, tau, dU, L, kT, minimum, maximum)
+	return (data, dim1, dim2, dt, alfa, tau, omega, dU, L, kT, minimum, maximum)
 	
 def potential(x, alfa):
 
@@ -109,11 +111,12 @@ def make_boltzmann_histogram(data, minimum, maximum,  dU, kT):
 	
 ############################################################################		
 ### ------------------------------- MAIN ------------------------------- ###
+############################################################################
 
 make_boltzmann = False
 
 # Read in data [ALL IS IN REDUCED UNITS]
-data, dim1, dim2, dt, alfa, tau, dU, L, kT, minimum, maximum = read_data()
+data, dim1, dim2, dt, alfa, tau, omega, dU, L, kT, minimum, maximum = read_data()
 
 # Convert from reduced units to real units with these scaling factors
 scale_length = L/1.0e-6		# micrometer of real length
