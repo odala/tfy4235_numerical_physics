@@ -1,0 +1,24 @@
+GIT FOR DUMMIES! ^^ <3
+
+VIEW STATUS OF REPOSITORY
+git status
+
+ADD TO STAGING AREA
+git add <file>
+
+COMMIT
+git commit -m "<write what the commit of the staged files do>"
+
+PUSHING TO A REMOTE
+git push origin master		# REMOTENAME = origin, BRANCHNAME = master
+
+PULLING FROM A REMOTE
+git pull origin master
+
+INITIALIZE A DIRECTORY AS A REPOSITORY
+git init
+git add			# adds the files in the local repository and stages them for commit
+git commit -m 'First commit.'
+git remote add origin <remote repository URL>	# sets the new remote
+git remote -v		# verifies he new remote URL
+git push origin master	# pushes the changes in your local repository up to the remote repository
