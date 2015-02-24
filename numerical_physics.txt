@@ -1,0 +1,45 @@
+SUMMING
+A sum on the computer gets more accurate if you sum numbers of the same scale toghether.
+Ex. 1 + 1/2 + 1/3 + 1/4 + ...
+	Forward sum: the partial sum grows while the next number to sum gets smaller and smaller.
+	Backward sum: the partial sum grows slower while the next number to sum gets bigger.
+
+HOW NUMBERS ARE REPRESENTED
+
+numbers --> words (strings of bits)
+
+Computers has a finite numerical precision.
+	- overflow
+	- underflow
+	- roundoff errors
+	- loss of precision
+
+Floating-point x = (s, m, e)_b = (-1)^s * m * b^e
+	s: the sign (0 for +, 1 for -), m: the mantissa (significand/coefficient), e: the exponent (10^e), b: the base (2 for binary, 10 for decimal)
+	The leading bit of the mantissa is always 1 (therefore not stored) <-- multiply with a potence here then multiply with the inverted exponent in e.
+	m = (1.a_{-1}...a_{-n}) = 1*2⁰ + a_{-1}*2^{-1} + ... + a_{-n}*2^{-n}
+
+Addition / subtraction of x_1 + x_2 with e_1 >= e_2:
+We have to scale the exponents and then we may lose bits in the mantissa.
+[(-1)^s1 * m1 +/- (-1)^s2 * m2 * 2^{e2-e1}]*2^e1
+
+All numbers less than 2^{-23} is regarded as zero when compared to one in single precision.
+
+  0 01111111 00000000000000000000000
++ 0 01101000 00000000000000000000000
+= 0 01111111 00000000000000000000001
+
+
+LIBRARIES
+
+.a (static library)
+.so (shared library)
+
+gfortran -Imypath program.f90 -Lmylib -lmittlib -llapack -lblas
+
+-l: library you wish to link to.
+-L: search path for libraries
+-I: search path for include files
+-O2: optimization flag
+
+

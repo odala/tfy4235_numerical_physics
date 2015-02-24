@@ -1,0 +1,121 @@
+FORTRAN
+
+
+
+1 DATATYPES
+
+- INTEGER, INTEGER(KIND=2/8), default 4 (32 bit).
+- REAL, REAL(KIND=8) / DOUBLE PRECISION, default 4 (32 bit)
+- COMPLEX, extract REAL() and AIMAG()
+- LOGICAL; .TRUE. & .FALSE.
+- CHARACTER, CHARACTER(LEN=80); a-z, A-Z, +, -, *, /, =
+- INTEGER,DIMENSION(100) :: array	! Declaration of an INTEGER array with 100 elements
+- TYPE name ... END TYPE name
+	TYPE derived
+		! Internal variables
+		INTEGER			:: counter
+		REAL			:: number
+		LOGICAL			:: used
+		CHARACTER(LEN=10)	:: string
+	END TYPE derived
+	! A declaration of a variable of the new derived datatype.
+	TYPE (derived)			:: my_type
+
+
+
+2 INSTRUCTIONS AND PROGRAMS
+
+do i = 1, 100
+	a = a * sqrt(b)
+	if (a > z) then
+		exit	!// Jump out of the loop
+	end if
+end do
+
+program daynumber
+	implicit none	!// Prevent the use of implicit declaration
+	integer		:: counter
+	integer, dimension(12) :: months
+	integer		:: day, month
+	integer		:: daynr
+
+	daynr = 0
+	day = 16
+	month = 9
+	months(:) = 30
+	months(1) = 31
+	months(2) = 28
+	....
+	
+	do counter = 1, month - 1
+		daynr = daynr + months(counter)
+	end do
+
+	daynr = daynr + day
+	print *, daynr
+end program daynumber
+
+
+
+3 INTERACTION WITH THE USER
+
+CHARACTER(LEN=35)	:: day_prompt
+PRINT *, day_prompt		!// the cursor automatically advances to the next line
+!// The * tells it's output to the screen, FMT =' (A)' tells the output is ASCII text and ADVANCE="NO" supress the automatic linefeed
+WRITE(*, FMT=' (A)', ADVANCE="NO") day_prompt
+READ(*,*) day
+
+nArgs = COMMAND_ARGUMENT_COUNT() returns the number of command line arguments
+CALL GET_COMMAND_ARGUMENT(<argument number (1 / 2 / etc.)>, stringToHoldArgument)
+READ(TRIM(stringToHoldArgument), FMT='I') day
+
+
+
+4 THE BASICS OF FILE I / O
+
+
+
+5 BINARY FILES
+
+
+
+6 FUNCTIONS
+
+function function_name(input_argument) result(output_argument)
+	implicit none
+	integer, intent(in)			:: input_argument	!// prevent us to overwrite the contents of the input argument
+	logical					:: output_argument
+end function function_name
+
+
+
+7 SUBROUTINES
+
+module m_add_1
+
+contains
+
+	subroutine add_1(res, v1, v2)
+		real, dimension(3), intent(out) :: res
+		real, dimension(3), intent(in)  :: v1
+		real, dimension(3), intent(in)  :: v2
+		
+		res = v1 + v2
+	
+	end subroutine add_0
+
+end module m_add_1
+
+MAKE FILES
+
+Automatically takes care of the dependices between files.
+
+PROG = <name of file>
+
+SRCS = <all the files>.f90
+
+OBJS = <name of all files>.o
+
+
+
+
