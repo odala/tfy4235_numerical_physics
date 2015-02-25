@@ -21,7 +21,7 @@ def read_data():
 	alfa = alfa[0]
 	tau = [float(x) for x in fin.readline().split()]		# read third line
 	tau = tau[0]
-	tau = [float(x) for x in fin.readline().split()]		# read third line
+	omega = [float(x) for x in fin.readline().split()]		# read third line
 	omega = omega[0]
 	dU = [float(x) for x in fin.readline().split()]			# read third line
 	dU = dU[0]
@@ -50,12 +50,12 @@ def plot_trajectory(data, dim1, dim2, alfa, tau, minimum, maximum):
 	define_color_cycle(trajectory)
 	
 	# Plot of the particles	
-	y = np.linspace(0, (dim2 - 1), scale_time*dim2)
+	y = np.linspace(0, (dim2 - 1), dim2)
 	for i in range(0, dim1):
-		plt.plot(scale_length*data[i][:], y, linewidth = 0.3)
-	plt.ylabel(r'Timestep}', fontsize=15)
-	plt.xlabel(r'Position [\mu m]}', fontsize=15)
-	plt.axis([minimum*scale_length, maximum*scale_length, 0.0, y[-1]])
+		plt.plot(scale_length*data[i][:], scale_time*y, linewidth = 0.3)
+	plt.ylabel(r'Time [s]', fontsize=15)
+	plt.xlabel(r'Position [\mu m]', fontsize=15)
+	plt.axis([minimum*scale_length, maximum*scale_length, 0.0, y[-1]*scale_time])
 	plt.title(r'Trajectories of the particles with $\tau$ = %f'%(tau), fontsize = 20)
 	
 	# Plot of the potential
@@ -106,7 +106,22 @@ def make_boltzmann_histogram(data, minimum, maximum,  dU, kT):
 	# Saving figure
 	plt.savefig('boltzmann_distribution' + '.png');
 	
+def plot_drift_velocity():
+	temp_arr = np.loadtxt('drift_velocity.txt')
+	taus = []
+	drift_velocity = []
+	for i in range(0, len(temp_arr)):
+		taus.append(temp_arr[i][0])
+		drift_velocity.append(temp_arr[i][1])
 	
+	drift_vel = plt.figure()
+	plt.plot(taus, drift_velocity, 'x')
+	
+	# Saving figure
+	plt.savefig('drift_velocity' + '.png');
+	
+	
+		
 	
 	
 ############################################################################		
@@ -120,10 +135,12 @@ data, dim1, dim2, dt, alfa, tau, omega, dU, L, kT, minimum, maximum = read_data(
 
 # Convert from reduced units to real units with these scaling factors
 scale_length = L/1.0e-6		# micrometer of real length
-scale_time = 1.0			# time steps
+scale_time = 10*dt/omega		# time steps
 scale_potential = dU/kT		# potential in factors of kT
 
 plot_trajectory(data, dim1, dim2, alfa, tau, minimum, maximum)
+
+plot_drift_velocity()
 
 if make_boltzmann:
 	U = np.zeros(len(data[0][:]))

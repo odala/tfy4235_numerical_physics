@@ -13,7 +13,7 @@ program biased_brownian_motion
     integer, parameter :: wp = dp
     
 	! ######## Variables #########    
-	integer, parameter					:: N = 10
+	integer, parameter					:: N = 1
 	real(wp)							:: r				!// m
 	real(wp)							:: x0
 	real(wp)							:: kT				!// eV
@@ -23,7 +23,7 @@ program biased_brownian_motion
 	real(wp)							:: tau				!// the period of the flash
 	real(wp) 							:: zeta, gama, D, omega, root1, root2 !// dynamic viscosity, friction constant, kT/dU, dU/gama/L**2
 	real(wp)							:: dt
-	real(wp), dimension(0:N-1, 0:99999)	:: x
+	real(wp), dimension(0:N-1,0:1999999):: x
 	real(wp)							:: pi = 4.0_wp* atan(1.0_wp)
 	integer								:: i, j, res
 	
@@ -67,11 +67,24 @@ program biased_brownian_motion
 		end do
 	end do
 	
+	call append_drift_velocity_to_file()
+	
 	call write_to_file()
 	
 	call system ('python make_plot.py')
 	
 contains
+
+real(wp) function drift_velocity(x)
+	real(wp), dimension(0:N-1,0:1999999), intent(in) 	:: x
+	drift_velocity = 0.0_wp
+	do i = 0, size(x, dim=1)-1
+		drift_velocity = drift_velocity + (x(i, size(x,dim=2)-1) - x(i, 0))/size(x,dim=2)
+	end do
+	drift_velocity = drift_velocity/size(x, dim=1)
+	return
+end function
+	
 
 real(wp) function updateX(x, t, dt)
 	real(wp), intent(in)		:: x, t, dt
@@ -234,6 +247,18 @@ subroutine input_w_default(param, default_param)
 		param = default_param
 	end if
 end subroutine
+
+subroutine append_drift_velocity_to_file()
+	logical :: exist
+	inquire(file="drift_velocity.txt", exist=exist)
+	if (exist) then
+		open(12, file="drift_velocity.txt", status="old", position="append", action="write")
+	else
+		open(12, file="drift_velocity.txt", status="new", action="write")
+	end if
+	write(12, *) tau, drift_velocity(x)
+	close(12)
+end subroutine
     
 
 subroutine write_to_file()
@@ -244,7 +269,7 @@ subroutine write_to_file()
 		stop
 	end if
 	
-	write(1,*) size(x, dim=1), size(x, dim=2)	!// dim1, dim2
+	write(1,*) size(x, dim=1), size(x, dim=2)/10!// dim1, dim2
 	write(1,*) dt								!// dt
 	write(1,*) alfa								!// alfa
 	write(1,*) tau								!// tau
@@ -253,7 +278,7 @@ subroutine write_to_file()
 	write(1,*) L								!// L
 	write(1,*) kT								!// kT
 	do i = 0, size(x, dim=1) - 1
-		write(1,*) x(i,:)						!// x = [[]]
+		write(1,*) x(i,0:size(x, dim=2)-1:10)						!// x = [[]]
 	end do
 	close(unit=1)
 	
