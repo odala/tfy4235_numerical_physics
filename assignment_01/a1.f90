@@ -13,7 +13,7 @@ program biased_brownian_motion
     integer, parameter :: wp = dp
     
 	! ######## Variables #########    
-	integer, parameter					:: N = 1
+	integer, parameter					:: N = 10
 	real(wp)							:: r				!// m
 	real(wp)							:: x0
 	real(wp)							:: kT				!// eV
@@ -49,15 +49,14 @@ program biased_brownian_motion
 
 	!// Criterion for the time step
 	call get_dt()
-	write(*,*) dt
+	write(*,*) "The timestep is ", dt
 	
 		
 	!// Start the diffusion process for the N particles
 	do i = 0, (N-1)
-	
+		tau = tau + 0.5_wp
 		gama = 6.0_wp*pi*zeta*r
 		omega = dU/(gama*L**2)
-		write(*,*) omega
 		
 		!// Set the starting position for the particles
 		x(i, 0) = x0
@@ -65,27 +64,19 @@ program biased_brownian_motion
 		do j = 1, size(x, dim=2) - 1
 			x(i, j) = updateX(x(i, j-1), j*dt, dt)
 		end do
+		
+		call append_drift_velocity_to_file(i)
 	end do
 	
-	call append_drift_velocity_to_file()
-	
-	call write_to_file()
+	call write_constants_to_file()
+	call write_trajectory_to_file()
 	
 	call system ('python make_plot.py')
 	
-contains
+contains	
 
-real(wp) function drift_velocity(x)
-	real(wp), dimension(0:N-1,0:1999999), intent(in) 	:: x
-	drift_velocity = 0.0_wp
-	do i = 0, size(x, dim=1)-1
-		drift_velocity = drift_velocity + (x(i, size(x,dim=2)-1) - x(i, 0))/size(x,dim=2)
-	end do
-	drift_velocity = drift_velocity/size(x, dim=1)
-	return
-end function
-	
-
+!
+! Update the position of the particle using the Euler scheme
 real(wp) function updateX(x, t, dt)
 	real(wp), intent(in)		:: x, t, dt
 	
@@ -95,6 +86,8 @@ real(wp) function updateX(x, t, dt)
 end function
 
 
+!
+!Compute the potential U(x, t)
 real(wp) function U(xPos, time)
 	real(wp), intent(in)		:: time
 	real(wp), intent(in)		:: xPos
@@ -117,9 +110,12 @@ real(wp) function U(xPos, time)
 	return
 end function
 
+
+!
+! Compute the force due to the potential U(x, t)
 real(wp) function F(x, t)
 	real(wp), intent(in) 		:: x, t
-	real(wp)					:: dx = 1e-3
+	real(wp)					:: dx = 1.0e-3_wp
 	
 	if (U(x,t) == 0.0_wp) then
 		F = 0.0_wp
@@ -130,15 +126,17 @@ real(wp) function F(x, t)
 	return
 end function
 
+!
+! Implement the time criterion
 subroutine get_dt()
 	dt = 1.0e-3_wp
 	
 	if ( 1/alfa >= 1/(1-alfa) ) then
-		do while ( 1/alfa*dt + 4*sqrt(2*kT/dU*dt) > 0.05*alfa )
+		do while ( 1/alfa*dt + 4*sqrt(2*kT/dU*dt) > 0.05_wp*alfa )
 			dt = dt/2
 		end do
 	else 
-		do while ( 1/(1-alfa)*dt + 4*sqrt(2*kT/dU*dt) > 0.05*alfa )
+		do while ( 1/(1-alfa)*dt + 4*sqrt(2*kT/dU*dt) > 0.05_wp*alfa )
 			dt = dt/2
 		end do
 	end if	
@@ -146,24 +144,26 @@ subroutine get_dt()
 end subroutine
 
 
+!
+! Takes input from the user
 subroutine input_potential()
 	character(len=*), parameter :: format_1 = "(A, T30, A, F14.10, A)"
 	
 	write(*, *) 'INPUT PARAMETERS:'
+	write(*, format_1, advance='no') 'Period of flash, tau ','(', std_tau, '):'
+	call input_w_default(tau, std_tau)
 	write(*, format_1, advance='no') 'Potential strength, dU [eV] ','(', std_dU, '):'
 	call input_w_default(dU, std_dU)
-	dU = dU * 1.60217657E-19
+	dU = dU * 1.60217657E-19_wp
 	write(*, format_1, advance='no') 'Period of saw-tooth potential, L ','(', std_L, '):'
 	call input_w_default(L, std_L)
 	write(*, format_1, advance='no') 'Asymmetric factor, alfa ','(', std_alfa, '):'
 	call input_w_default(alfa, std_alfa)
-	write(*, format_1, advance='no') 'Period of flash, tau ','(', std_tau, '):'
-	call input_w_default(tau, std_tau)
 	write(*, format_1, advance='no') 'Dynamic viscosity, zeta ','(', std_zeta, '):'
 	call input_w_default(zeta, std_zeta)
 	write(*, format_1, advance='no') 'k_B * T [eV] ','(', std_kT, '):'
 	call input_w_default(kT, std_kT)
-	kT = kT * 1.60217657E-19
+	kT = kT * 1.60217657E-19_wp
 	
 	!// Validation
     if (dU == 0 .OR. L == 0 .OR. zeta == 0 .OR. kT == 0 .OR. alfa == 0) then
@@ -173,6 +173,8 @@ subroutine input_potential()
     end if
 end subroutine
 
+!
+! Takes input from the user
 subroutine input_particle(i)
 	integer, intent(in)				:: i
 	
@@ -192,6 +194,9 @@ subroutine input_particle(i)
 end subroutine
 
 
+!
+! Draw N numbers with the random_gauss() function. Writes them to file to check
+! if it is a normal distribution
 subroutine check_gaussian()
 	open(unit=1,file="check_gaussian.txt", form="formatted", status="replace", action="write", iostat = res)
 	
@@ -211,11 +216,9 @@ subroutine check_gaussian()
 end subroutine
 
 ! Gaussian random number
-! 
-! Draws Gaussian distributed random numbers. Normal distribution is implemented 
-! by the polar Box-Müller algorithm, using the uniform distribution from
-! random_number(). 
-
+! Draw Gaussian distributed random numbers. Normal distribution is implemented 
+! by the polar Box-Müller algorithm using the uniform distribution from
+! random_number().
 real(wp) function random_gauss()
 	real(wp)		:: rand1, rand2, w
 	integer			:: i
@@ -232,7 +235,8 @@ real(wp) function random_gauss()
     random_gauss = rand1 * SQRT( - 2.0_wp * LOG(w) / w)
 end function
 
-
+!
+! If no input is given the parameter is set to the default parameter
 subroutine input_w_default(param, default_param)
 	real(wp), intent(out) :: param
 	real(wp), intent(in)  :: default_param
@@ -253,35 +257,37 @@ subroutine input_w_default(param, default_param)
 	end if
 end subroutine
 
-subroutine append_drift_velocity_to_file()
-	logical :: exist
+
+!
+! Append the drift velocitys to file
+subroutine append_drift_velocity_to_file(i)
+	integer		:: i
+	real(wp)	:: drift_velocity
+	logical 	:: exist
+	
 	inquire(file="drift_velocity.txt", exist=exist)
 	if (exist) then
 		open(12, file="drift_velocity.txt", status="old", position="append", action="write")
 	else
 		open(12, file="drift_velocity.txt", status="new", action="write")
 	end if
-	write(12, *) tau, drift_velocity(x)
+	
+	drift_velocity = ( x(i, size(x,dim=2)-1) - x(i, 0) ) / size(x,dim=2)
+
+	write(12, *) tau, drift_velocity
 	close(12)
 end subroutine
     
-
-subroutine write_to_file()
-	!// Write the coordinates to file
-	open(unit=1,file="coordinates.txt", form="formatted", status="replace", action="write", iostat = res)
+    
+!
+! Writes the trajectory of the particle(s) to the file "trajectory.txt"
+subroutine write_trajectory_to_file()
+	open(unit=1,file="trajectory.txt", form="formatted", status="replace", action="write", iostat = res)
 	if (res /= 0) then
 		write(*,*) "Error in opening file, status", res
 		stop
 	end if
 	
-	write(1,*) size(x, dim=1), size(x, dim=2)/10!// dim1, dim2
-	write(1,*) dt								!// dt
-	write(1,*) alfa								!// alfa
-	write(1,*) tau								!// tau
-	write(1,*) omega							!// omega
-	write(1,*) dU								!// dU
-	write(1,*) L								!// L
-	write(1,*) kT								!// kT
 	do i = 0, size(x, dim=1) - 1
 		write(1,*) x(i,0:size(x, dim=2)-1:10)						!// x = [[]]
 	end do
@@ -289,7 +295,29 @@ subroutine write_to_file()
 	
 end subroutine
 
+!
+! Writes most of the constants to the file "constants.txt"
+subroutine write_constants_to_file()
+	open(unit=13,file="constants.txt", form="formatted", status="replace", action="write", iostat = res)
+	if (res /= 0) then
+		write(*,*) "Error in opening file, status", res
+		stop
+	end if
 
+	write(13,*) size(x, dim=1), size(x, dim=2)/10	!// #of particles, #of time steps
+	write(13,*) dt									!// dt
+	write(13,*) alfa								!// alfa
+	write(13,*) tau									!// tau
+	write(13,*) omega								!// omega
+	write(13,*) dU									!// dU
+	write(13,*) L									!// L
+	write(13,*) kT									!// kT
+	
+	close(unit=13)
+end subroutine
+
+!
+! Initialise the random seed for the random number generator random_number()
 subroutine init_random_seed()
   integer 								:: i, n, clock
   integer, dimension(:), allocatable 	:: seed
