@@ -11,7 +11,7 @@ rc('text', usetex=True)
 import scipy
 from scipy.integrate import quad
 
-
+# Read data from file
 def read_data():
 	fin = open(file_name + '.txt', 'r')
 	dim1, dim2 = [int(x) for x in fin.readline().split()] 	# read first line
@@ -35,16 +35,18 @@ def read_data():
 	data = np.reshape(data, (dim1, dim2))
 	fin.close()
 	return (data, dim1, dim2, dt, alfa, tau, omega, dU, L, kT, minimum, maximum)
-	
+
+# The potential
 def potential(x, alfa):
 
 	x = x - np.floor(x/1.0)*1.0
 	if (x >= 0.0 and x < alfa):
 		U = x/alfa
-	else:
+	elif (x >= alfa and x < 1.0):
 		U = (1.0-x)/(1.0-alfa)
 	return U
 
+# Plot the trajectory of the particle(s) and the potential they are in
 def plot_trajectory(data, dim1, dim2, alfa, tau, minimum, maximum):
 	trajectory = plt.figure()
 	define_color_cycle(trajectory)
@@ -63,7 +65,7 @@ def plot_trajectory(data, dim1, dim2, alfa, tau, minimum, maximum):
 	x = np.linspace(minimum, maximum, nPoints)
 	pot = np.zeros(nPoints)
 	for i in range(0, len(x)):
-		pot[i] = scale_potential*potential(x[i], alfa)
+		pot[i] = scale_potential/kT*potential(x[i], alfa)			# Potential in factors of kT
 	#plt.plot(x*scale_length, 0.2*y[-1]/max(pot) * pot, 'k')		# The potential as a graph
 
 	stuff = np.linspace(0, y[-1], nPoints)
@@ -79,6 +81,7 @@ def plot_trajectory(data, dim1, dim2, alfa, tau, minimum, maximum):
 	# Saving figure
 	plt.savefig('trajectory' + '.png');
 
+# Defines a cosumised color cycle for the plotting
 def define_color_cycle(fig_name):
 	# Define color cycle for the figure fig_name
 	NUM_COLORS = 10
@@ -87,21 +90,19 @@ def define_color_cycle(fig_name):
 	ax.set_color_cycle([cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
 
 
+# Makes a histogram of where in the potential the particles have been and
+# compares it to the true Boltzmann distribution from statistical mechanics
 def make_boltzmann_histogram(data,  dU, kT):
+	# Plot histogram of Boltzmann distribution
 	minimum = min(data)
 	maximum = max(data)
-	hist, bins = np.histogram(data, bins=1000, range=(minimum, maximum), normed=True)
-	
-	# Plot histogram
-	width = (bins[1] - bins[0])
+	hist, bins = np.histogram(data, bins=100, range=(minimum, maximum), normed=True)
 	center = (bins[:-1] + bins[1:]) / 2
-	histogram = plt.figure()
+	histogram = plt.figure()		#plt.bar(center, hist, align='center', width=bins[1] - bins[0])			
+	plt.plot(center, hist,'ro')
 	plt.title(r'Boltzmann Distribution for $dU / k_BT=$ %d'%(dU/kT), fontsize = 20)
 	
-	#plt.bar(center, hist, align='center', width=width)			
-	plt.plot(center, hist,'ro')
-	
-	# Plot Boltzmann distribution
+	# Plot exact Boltzmann distribution
 	boltzmann_dist = lambda U: np.exp(-U/kT) / (kT*(1-np.exp(-dU/kT)))
 	U = np.linspace(minimum, maximum, 1000)
 	plt.plot( U, boltzmann_dist(U) )
@@ -109,7 +110,9 @@ def make_boltzmann_histogram(data,  dU, kT):
 	
 	# Saving figure
 	plt.savefig('boltzmann_distribution' + '.png');
-	
+
+
+# Plots the drift velocity versus flashing period	
 def plot_drift_velocity():
 	temp_arr = np.loadtxt('drift_velocity.txt')
 	taus = []
@@ -124,31 +127,54 @@ def plot_drift_velocity():
 	# Saving figure
 	plt.savefig('drift_velocity' + '.png');
 	
+
+# Checks if the gaussian Box-Müller algorithm really are a normal distribution
+def plot_gaussian():
+	normal_dist = lambda x: 1/np.sqrt(2*np.pi)*np.exp(-x**2/2)
+	x = np.linspace(-5, 5, 1000)
+	rand_gauss = np.loadtxt('check_gaussian.txt')
+	hist, bins = np.histogram(rand_gauss, bins=100, normed=True)
+	center = (bins[:-1] + bins[1:]) / 2
+	gaussian = plt.figure()
+	#plt.bar(center, hist, align='center', width=bins[1] - bins[0])			
+	plt.plot(center, hist,'ro')
+	plt.plot(x, normal_dist(x), 'b')
+	plt.title(r'Standard Gaussian Random Number Generator', fontsize = 20)
 	
-		
+	# Saving figure
+	plt.savefig('normal_distribution' + '.png');
 	
 	
 ############################################################################		
 ### ------------------------------- MAIN ------------------------------- ###
 ############################################################################
 
-make_boltzmann = True
+do_check_gaussian = False
+do_plot_trajectory = True
+do_plot_boltzmann = False
+do_plot_drift_velocity = False
 
 # Read in data [ALL IS IN REDUCED UNITS]
 data, dim1, dim2, dt, alfa, tau, omega, dU, L, kT, minimum, maximum = read_data()
 
-# Convert from reduced units to real units with these scaling factors
-scale_length = L/1.0e-6		# micrometer of real length
-scale_time = 10*dt/omega		# time steps
-scale_potential = dU/kT		# potential in factors of kT
+if do_plot_trajectory:
+	# Convert from reduced units to real units with these scaling factors
+	scale_length = L/1.0e-6			# micrometer of real length
+	scale_time = 10*dt/omega		# time steps
+	scale_potential = dU			# potential
 
-plot_trajectory(data, dim1, dim2, alfa, tau, minimum, maximum)
+	plot_trajectory(data, dim1, dim2, alfa, tau, minimum, maximum)
 
-#plot_drift_velocity()
-
-if make_boltzmann:
+if do_plot_drift_velocity:
+	# do something here!
+	p = 0
+	
+if do_plot_boltzmann:
 	U = np.zeros(len(data[0][:]))
 	for i in range(0, len(data[0][:])):				# convert to real potential
 		U[i] = dU*potential(data[0][i], alfa)
 	
 	make_boltzmann_histogram(U, dU, kT)
+	
+if do_check_gaussian:
+	plot_gaussian()

@@ -21,33 +21,30 @@ program biased_brownian_motion
 	real(wp)							:: L				!// m
 	real(wp)							:: alfa				!// asymmetry factor
 	real(wp)							:: tau				!// the period of the flash
-	real(wp) 							:: zeta, gama, D, omega, root1, root2, temp !// dynamic viscosity, friction constant, kT/dU, dU/gama/L**2
+	real(wp) 							:: zeta, gama, omega !// dynamic viscosity, friction constant, kT/dU, dU/gama/L**2
 	real(wp)							:: dt
 	real(wp), dimension(0:N-1,0:9999999):: x
 	real(wp)							:: pi = 4.0_wp* atan(1.0_wp)
 	integer								:: i, j, res
 	
 	! -- standard values
-	real(wp), parameter     :: std_r       	= 12E-9_wp
+	real(wp), parameter     :: std_r       	= 12E-9_wp	! m
 	real(wp), parameter     :: std_L        = 20E-6_wp	! m
-	real(wp), parameter     :: std_dU       = 80.0_wp 	!0.26_wp   ! 10*kT ! eV
+	real(wp), parameter     :: std_dU       = 80.0_wp 	! eV
     real(wp), parameter     :: std_alfa    	= 0.2_wp
-    real(wp), parameter     :: std_tau		= 4.0_wp 	!4.0_wp
+    real(wp), parameter     :: std_tau		= 4.0_wp 	
     real(wp), parameter     :: std_zeta     = 1E-3_wp	! Pa*s
     real(wp), parameter     :: std_kT	    = 0.026_wp	! Termisk energi i eV
     real(wp), parameter     :: std_x0       = 0.0_wp
     
     
     !// Initialise the random seed
-	call init_random_seed
-	
+	call init_random_seed	
 	
 	!// Read in values from the user
 	call input_potential()	
 	call input_particle(-1)		!// place this inside a loop to get individual radiuses and starting positions for the different particles; set -1 to i.
 
-	!// Initialise some variables
-	D = kT / dU
 	!// Converts to reduced units: new t = old t * omega, introduce new x = old x/L where L is  the period of saw-tooth potential, introduce new U = old U/dU where dU is the amplitude of the potential
 
 	!// Criterion for the time step
@@ -92,7 +89,7 @@ end function
 real(wp) function updateX(x, t, dt)
 	real(wp), intent(in)		:: x, t, dt
 	
-	updateX = x + F(x, t) * dt + sqrt(2*D*dt)*gaussianRand(0.0_wp, 1.0_wp)
+	updateX = x + F(x, t) * dt + sqrt(2*kT/dU*dt)*random_gauss()
 	return
 	
 end function
@@ -137,11 +134,11 @@ subroutine get_dt()
 	dt = 1.0e-3_wp
 	
 	if ( 1/alfa >= 1/(1-alfa) ) then
-		do while ( 1/alfa*dt + 4*sqrt(2*D*dt) > 0.1*alfa )
+		do while ( 1/alfa*dt + 4*sqrt(2*kT/dU*dt) > 0.05*alfa )
 			dt = dt/2
 		end do
 	else 
-		do while ( 1/(1-alfa)*dt + 4*sqrt(2*D*dt) > 0.1*alfa )
+		do while ( 1/(1-alfa)*dt + 4*sqrt(2*kT/dU*dt) > 0.05*alfa )
 			dt = dt/2
 		end do
 	end if	
@@ -195,33 +192,44 @@ subroutine input_particle(i)
 end subroutine
 
 
-real(wp) function gaussianRand(mu, sigma)
-	real(wp), intent(in)	:: mu
-	real(wp), intent(in)	:: sigma
-	logical 			:: haveSpare =.false.
-	real(wp)				:: rand1, rand2, pi = 4.* atan(1.)
- 
-	if (haveSpare) then
-		haveSpare = .false.
-		gaussianRand = sigma * sqrt(rand1) * sin(rand2) + mu
-		return
-	end if
- 
-	haveSpare = .true.
- 
-	call random_number(rand1)
+subroutine check_gaussian()
+	open(unit=1,file="check_gaussian.txt", form="formatted", status="replace", action="write", iostat = res)
 	
-	if (rand1 < 1e-10) then 
-		rand1 = 1e-10
+	if (res /= 0) then
+		write(*,*) "Error in opening file, status", res
+		stop
 	end if
-		
-	rand1 = -2 * log(rand1);
-	call random_number(rand2)
-	rand2 = rand2 * 2 * pi
- 	
- 	gaussianRand = sigma * sqrt(rand1) * cos(rand2) + mu
- 	
-	return
+	
+	write(*,*) random_gauss()
+	write(*,*) random_gauss()
+	
+	do i = 0, 10000
+		write(1,*) random_gauss()
+	end do
+	close(unit=1)
+	
+end subroutine
+
+! Gaussian random number
+! 
+! Draws Gaussian distributed random numbers. Normal distribution is implemented 
+! by the polar Box-Müller algorithm, using the uniform distribution from
+! random_number(). 
+
+real(wp) function random_gauss()
+	real(wp)		:: rand1, rand2, w
+	integer			:: i
+	
+    w = 0.0_wp
+    do while(w == 0.0_wp .OR. w >= 1)
+        call random_number(rand1)
+        call random_number(rand2)
+        rand1 = rand1 * 2.0_wp - 1.0_wp
+        rand2 = rand2 * 2.0_wp - 1.0_wp
+        w = rand1**2 + rand2**2
+    end do
+
+    random_gauss = rand1 * SQRT( - 2.0_wp * LOG(w) / w)
 end function
 
 
