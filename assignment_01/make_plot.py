@@ -87,15 +87,19 @@ def define_color_cycle(fig_name):
 	ax.set_color_cycle([cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
 
 
-def make_boltzmann_histogram(data, minimum, maximum,  dU, kT):
+def make_boltzmann_histogram(data,  dU, kT):
+	minimum = min(data)
+	maximum = max(data)
 	hist, bins = np.histogram(data, bins=1000, range=(minimum, maximum), normed=True)
 	
 	# Plot histogram
-	width = 0.7 * (bins[1] - bins[0])
+	width = (bins[1] - bins[0])
 	center = (bins[:-1] + bins[1:]) / 2
 	histogram = plt.figure()
 	plt.title(r'Boltzmann Distribution for $dU / k_BT=$ %d'%(dU/kT), fontsize = 20)
-	plt.bar(center, hist, align='center', width=width)			#plt.plot(center, hist,'o')
+	
+	#plt.bar(center, hist, align='center', width=width)			
+	plt.plot(center, hist,'ro')
 	
 	# Plot Boltzmann distribution
 	boltzmann_dist = lambda U: np.exp(-U/kT) / (kT*(1-np.exp(-dU/kT)))
@@ -128,7 +132,7 @@ def plot_drift_velocity():
 ### ------------------------------- MAIN ------------------------------- ###
 ############################################################################
 
-make_boltzmann = False
+make_boltzmann = True
 
 # Read in data [ALL IS IN REDUCED UNITS]
 data, dim1, dim2, dt, alfa, tau, omega, dU, L, kT, minimum, maximum = read_data()
@@ -140,11 +144,11 @@ scale_potential = dU/kT		# potential in factors of kT
 
 plot_trajectory(data, dim1, dim2, alfa, tau, minimum, maximum)
 
-plot_drift_velocity()
+#plot_drift_velocity()
 
 if make_boltzmann:
 	U = np.zeros(len(data[0][:]))
 	for i in range(0, len(data[0][:])):				# convert to real potential
 		U[i] = dU*potential(data[0][i], alfa)
 	
-	make_boltzmann_histogram(U, min(U), max(U), dU, kT)
+	make_boltzmann_histogram(U, dU, kT)

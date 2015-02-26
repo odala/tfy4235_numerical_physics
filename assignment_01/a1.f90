@@ -21,9 +21,9 @@ program biased_brownian_motion
 	real(wp)							:: L				!// m
 	real(wp)							:: alfa				!// asymmetry factor
 	real(wp)							:: tau				!// the period of the flash
-	real(wp) 							:: zeta, gama, D, omega, root1, root2 !// dynamic viscosity, friction constant, kT/dU, dU/gama/L**2
+	real(wp) 							:: zeta, gama, D, omega, root1, root2, temp !// dynamic viscosity, friction constant, kT/dU, dU/gama/L**2
 	real(wp)							:: dt
-	real(wp), dimension(0:N-1,0:1999999):: x
+	real(wp), dimension(0:N-1,0:9999999):: x
 	real(wp)							:: pi = 4.0_wp* atan(1.0_wp)
 	integer								:: i, j, res
 	
@@ -52,12 +52,15 @@ program biased_brownian_motion
 
 	!// Criterion for the time step
 	call get_dt()
+	write(*,*) dt
+	
 		
 	!// Start the diffusion process for the N particles
 	do i = 0, (N-1)
 	
 		gama = 6.0_wp*pi*zeta*r
 		omega = dU/(gama*L**2)
+		write(*,*) omega
 		
 		!// Set the starting position for the particles
 		x(i, 0) = x0
@@ -90,7 +93,6 @@ real(wp) function updateX(x, t, dt)
 	real(wp), intent(in)		:: x, t, dt
 	
 	updateX = x + F(x, t) * dt + sqrt(2*D*dt)*gaussianRand(0.0_wp, 1.0_wp)
-	
 	return
 	
 end function
@@ -132,23 +134,18 @@ real(wp) function F(x, t)
 end function
 
 subroutine get_dt()
-	!if ( 1/alfa >= 1/(1-alfa) ) then
-		!	root1 = 8.0_wp*D**2.0_wp + 0.1_wp
-		!	if (root1 >= 0.0_wp) then
-		!		dt = (-sqrt(8.0_wp*D) + sqrt(root1)) * alfa
-		!	else
-		!		dt = (-sqrt(8.0_wp*D) - sqrt(root1)) * alfa
-		!	end if
-		!else 
-		!	root2 = 8.0_wp*D**2.0_wp + 0.1_wp*alfa / (1.0_wp-alfa)
-		!	if (root2 >= 0.0_wp) then
-		!		dt = (-sqrt(8.0_wp*D) + sqrt(root2)) * (1.0_wp-alfa)
-		!	else
-		!		dt = (-sqrt(8.0_wp*D) - sqrt(root2)) * (1.0_wp-alfa)
-		!	end if
-		!end if
-	
 	dt = 1.0e-3_wp
+	
+	if ( 1/alfa >= 1/(1-alfa) ) then
+		do while ( 1/alfa*dt + 4*sqrt(2*D*dt) > 0.1*alfa )
+			dt = dt/2
+		end do
+	else 
+		do while ( 1/(1-alfa)*dt + 4*sqrt(2*D*dt) > 0.1*alfa )
+			dt = dt/2
+		end do
+	end if	
+	
 end subroutine
 
 
