@@ -5,29 +5,32 @@ import matplotlib.pyplot as plt
 from matplotlib import rc
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
 rc('text', usetex=True)
+from mpl_toolkits.mplot3d.axes3d import Axes3D
 import scipy
 from scipy.integrate import quad
 
-# Read some constants from the file "constants.txt"
+# Read the constants from the file "constants.txt"
 def read_constants():
 	fin = open("constants" + '.txt', 'r')
 	N, nTimeSteps = [int(x) for x in fin.readline().split()] 	# read first line
-	dt = [float(x) for x in fin.readline().split()]			# read second line
+	dt = [float(x) for x in fin.readline().split()]				# read second line
 	dt = dt[0]
-	alfa = [float(x) for x in fin.readline().split()]		# read third line
+	alfa = [float(x) for x in fin.readline().split()]	
 	alfa = alfa[0]
-	tau = [float(x) for x in fin.readline().split()]		# read third line
+	tau = [float(x) for x in fin.readline().split()]
 	tau = tau[0]
-	omega = [float(x) for x in fin.readline().split()]		# read third line
+	omega = [float(x) for x in fin.readline().split()]
 	omega = omega[0]
-	dU = [float(x) for x in fin.readline().split()]			# read third line
+	dU = [float(x) for x in fin.readline().split()]	
 	dU = dU[0]
-	L = [float(x) for x in fin.readline().split()]			# read third line
+	L = [float(x) for x in fin.readline().split()]	
 	L = L[0]
-	kT = [float(x) for x in fin.readline().split()]			# read third line
+	kT = [float(x) for x in fin.readline().split()]		
 	kT = kT[0]
+	measurementPeriod = [int(x) for x in fin.readline().split()]
+	measurementPeriod = measurementPeriod[0]
 	fin.close()
-	return (N, nTimeSteps, dt, alfa, tau, omega, dU, L, kT)
+	return (N, nTimeSteps, dt, alfa, tau, omega, dU, L, kT, measurementPeriod)
 
 
 # The potential
@@ -39,6 +42,7 @@ def potential(x, alfa):
 	elif (x >= alfa and x < 1.0):
 		U = (1.0-x)/(1.0-alfa)
 	return U
+
 
 # Plot the trajectory of the particle(s) and the potential they are in
 def plot_trajectory(alfa, tau):
@@ -79,8 +83,39 @@ def plot_trajectory(alfa, tau):
 	
 	# Saving figure
 	plt.savefig('trajectory' + '.png');
+	
 
-# Defines a cosumised color cycle for the plotting
+# Plots the motion of the ensemble of particles and how the particle density behaves in time
+def plot_ensemble_in_time():
+	data = np.loadtxt('trajectory.txt')
+	dim1, dim2 = data.shape
+	
+	ensemble_motion = plt.figure()
+	ax = ensemble_motion.add_subplot(1, 1, 1, projection='3d')
+	
+	start = np.floor(data.min())
+	stop = np.ceil(data.max())
+	n = 5
+	nbins = stop-start
+	
+	t = np.linspace(0, dim2 - 1, n)
+	t = np.floor(t)
+	
+	for c, z in zip(['r', 'g', 'b', 'y', 'k'], range(0,n)):
+		hist, x_bins = np.histogram(data[:, t[z]], bins=nbins, range=(start, stop), normed=False)
+		x_center = (x_bins[:-1] + x_bins[1:]) / 2
+		cs = [c] * len(x_center)
+		ax.bar(x_center*scale_length, hist, align='center', zs=z*scale_time, zdir='y', color=cs, alpha=0.8, width = (x_bins[1] - x_bins[0])*scale_length)
+	
+	ax.set_xlabel('Position [$\mu$m/s]')
+	ax.set_ylabel('Time [s]')
+	ax.set_zlabel('Number of particles')
+	
+	# Saving figure
+	plt.savefig('ensemble_motion' + '.png');
+
+
+# Defines a costumised color cycle for the plotting
 def define_color_cycle(fig_name):
 	# Define color cycle for the figure fig_name
 	NUM_COLORS = 10
@@ -89,7 +124,8 @@ def define_color_cycle(fig_name):
 	ax.set_color_cycle([cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
 
 
-# Makes a histogram of where in the potential the particles have been and
+
+# Makes a histogram of where in the potential the particle have been and
 # compares it to the true Boltzmann distribution from statistical mechanics
 def make_boltzmann_histogram(data,  dU, kT):
 	# Plot histogram of Boltzmann distribution
@@ -111,6 +147,7 @@ def make_boltzmann_histogram(data,  dU, kT):
 	plt.savefig('boltzmann_distribution' + '.png');
 	
 
+
 # Checks if the gaussian Box-Muller algorithm really are a normal distribution
 def plot_gaussian():
 	normal_dist = lambda x: 1/np.sqrt(2*np.pi)*np.exp(-x**2/2)
@@ -128,13 +165,20 @@ def plot_gaussian():
 	plt.savefig('normal_distribution' + '.png');
 	
 
+
 # Plots the drift velocity versus flashing period	
 def plot_drift_velocity():
 	temp_arr = np.loadtxt('drift_velocity.txt')
+	temp_arr = temp_arr[temp_arr[:,0].argsort()]
 	taus = temp_arr[:, 0]
-	drift_velocity = temp_arr[:, 1]
+	drift_velocity = (scale_length / T) * np.array(temp_arr[:, 1])
+	std_dev = temp_arr[:, 2]
+	print drift_velocity[-1]
 	drift_vel = plt.figure()
-	plt.plot(taus, drift_velocity, 'x')
+	plt.plot(taus, drift_velocity)
+	plt.errorbar(taus, drift_velocity, yerr=std_dev, fmt=None, color='b')
+	plt.ylabel(r'Drift velocity, $\left< v \right>$ [$\mathrm{\mu}$m/s]', fontsize=15)
+	plt.xlabel(r'Period of flash, $\tau$ [s]', fontsize=15)
 	
 	# Saving figure
 	plt.savefig('drift_velocity' + '.png');
@@ -149,17 +193,22 @@ do_check_gaussian = False
 do_plot_trajectory = True
 do_plot_boltzmann = False
 do_plot_drift_velocity = True
+do_plot_ensemble_in_time = True
 
-# Read in data [ALL IS IN REDUCED UNITS]
-N, nTimeSteps, dt, alfa, tau, omega, dU, L, kT = read_constants()
+# Read in data [DT IS IN REDUCED UNITS]
+N, nTimeSteps, dt, alfa, tau, omega, dU, L, kT, measurementPeriod = read_constants()
+T = nTimeSteps*measurementPeriod*dt/omega
+
+# Convert from reduced units to real units with these scaling factors
+scale_length = L/1.0e-6						# micrometer of real length
+scale_time = measurementPeriod*dt/omega		# time steps
+scale_potential = dU						# potential
 
 if do_plot_trajectory:
-	# Convert from reduced units to real units with these scaling factors
-	scale_length = L/1.0e-6			# micrometer of real length
-	scale_time = 10*dt/omega		# time steps
-	scale_potential = dU			# potential
-
 	plot_trajectory(alfa, tau)
+	
+if do_plot_ensemble_in_time:
+	plot_ensemble_in_time()
 
 if do_plot_drift_velocity:
 	plot_drift_velocity()

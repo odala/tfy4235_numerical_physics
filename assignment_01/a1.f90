@@ -13,7 +13,7 @@ program biased_brownian_motion
     integer, parameter :: wp = dp
     
 	! ######## Variables #########    
-	integer, parameter					:: N = 10
+	integer, parameter					:: N = 50
 	real(wp)							:: r				!// m
 	real(wp)							:: x0
 	real(wp)							:: kT				!// eV
@@ -23,9 +23,12 @@ program biased_brownian_motion
 	real(wp)							:: tau				!// the period of the flash
 	real(wp) 							:: zeta, gama, omega !// dynamic viscosity, friction constant, kT/dU, dU/gama/L**2
 	real(wp)							:: dt
-	real(wp), dimension(0:N-1,0:9999999):: x
+	real(wp), dimension(0:N-1,0:999999)	:: x
 	real(wp)							:: pi = 4.0_wp* atan(1.0_wp)
 	integer								:: i, j, res
+	integer 							:: measurementPeriod = 10
+	real								:: fractionOff = 0.5_wp !3.0_wp / 4.0_wp
+	real(wp)			 				:: F_ext
 	
 	! -- standard values
 	real(wp), parameter     :: std_r       	= 12E-9_wp	! m
@@ -36,6 +39,16 @@ program biased_brownian_motion
     real(wp), parameter     :: std_zeta     = 1E-3_wp	! Pa*s
     real(wp), parameter     :: std_kT	    = 0.026_wp	! Termisk energi i eV
     real(wp), parameter     :: std_x0       = 0.0_wp
+    
+    ! -- standard values for the experiment
+	!real(wp), parameter     :: std_r       	= 2E-6_wp	! m
+	!real(wp), parameter     :: std_L        = 10E-6_wp	! m
+	!real(wp), parameter     :: std_dU       = 1250.0_wp	! eV
+    !real(wp), parameter     :: std_alfa    	= 0.1_wp
+    !real(wp), parameter     :: std_tau		= 4.0_wp 	
+    !real(wp), parameter     :: std_zeta     = 1E-3_wp	! Pa*s
+    !real(wp), parameter     :: std_kT	    = 0.026		! Termisk energi i eV
+    !real(wp), parameter     :: std_x0       = 0.0_wp
     
     
     !// Initialise the random seed
@@ -51,10 +64,12 @@ program biased_brownian_motion
 	call get_dt()
 	write(*,*) "The timestep is ", dt
 	
+	!// The external force due to gravity
+	F_ext = 0.0_wp 	!- 4.0_wp/3.0_wp * pi * r**3 * (1.05e3 - 0.9982071e3_wp)*9.81*sin(pi/4.0_wp)
+	
 		
 	!// Start the diffusion process for the N particles
 	do i = 0, (N-1)
-		tau = tau + 0.5_wp
 		gama = 6.0_wp*pi*zeta*r
 		omega = dU/(gama*L**2)
 		
@@ -65,9 +80,9 @@ program biased_brownian_motion
 			x(i, j) = updateX(x(i, j-1), j*dt, dt)
 		end do
 		
-		call append_drift_velocity_to_file(i)
 	end do
 	
+	!call append_drift_velocity_to_file()
 	call write_constants_to_file()
 	call write_trajectory_to_file()
 	
@@ -97,7 +112,7 @@ real(wp) function U(xPos, time)
 	x = xPos - floor(xPos)
 	t = time - floor(time/(tau*omega))*tau*omega
 	
-	if (tau /= 0.0_wp .and. t >= 0.0_wp .and. t < 3.0_wp/4.0_wp*tau*omega) then
+	if (tau /= 0.0_wp .and. t >= 0.0_wp .and. t < fractionOff*tau*omega) then
 		U = 0.0_wp
 	else
 		if (x >= 0.0_wp .and. x < alfa) then
@@ -118,9 +133,9 @@ real(wp) function F(x, t)
 	real(wp)					:: dx = 1.0e-3_wp
 	
 	if (U(x,t) == 0.0_wp) then
-		F = 0.0_wp
+		F = F_ext
 	else
-		F = - ( U(x + dx, t) - U(x - dx, t) ) / (2.0_wp*dx)
+		F = - ( U(x + dx, t) - U(x - dx, t) ) / (2.0_wp*dx) + F_ext
 	end if
 	
 	return
@@ -139,7 +154,13 @@ subroutine get_dt()
 		do while ( 1/(1-alfa)*dt + 4*sqrt(2*kT/dU*dt) > 0.05_wp*alfa )
 			dt = dt/2
 		end do
-	end if	
+	end if
+	
+	if ( 1/alfa >= 1/(1-alfa) ) then
+		write(*,*) (1/alfa*dt + 4*sqrt(2*kT/dU*dt)) / alfa * 100
+	else
+		write(*,*) (1/(1-alfa)*dt + 4*sqrt(2*kT/dU*dt)) / alfa * 100
+	end if
 	
 end subroutine
 
@@ -260,22 +281,39 @@ end subroutine
 
 !
 ! Append the drift velocitys to file
-subroutine append_drift_velocity_to_file(i)
-	integer		:: i
+subroutine append_drift_velocity_to_file()
 	real(wp)	:: drift_velocity
+	real		:: std_dev
 	logical 	:: exist
+	integer		:: i
+	if (N >= 25) then 
+		inquire(file="drift_velocity.txt", exist=exist)
+		if (exist) then
+			open(12, file="drift_velocity.txt", status="old", position="append", action="write")
+		else
+			open(12, file="drift_velocity.txt", status="new", action="write")
+		end if
 	
-	inquire(file="drift_velocity.txt", exist=exist)
-	if (exist) then
-		open(12, file="drift_velocity.txt", status="old", position="append", action="write")
-	else
-		open(12, file="drift_velocity.txt", status="new", action="write")
-	end if
+		drift_velocity = 0.0_wp
 	
-	drift_velocity = ( x(i, size(x,dim=2)-1) - x(i, 0) ) / size(x,dim=2)
+		do i = 0, N - 1
+			drift_velocity = drift_velocity + (x(i, size(x,dim=2)-1) - x(i, 0)) / size(x,dim=2)
+		end do
+	
+		drift_velocity = drift_velocity / N
+		
+		std_dev = 0.0_wp
+		do i = 0, N-1
+			std_dev = std_dev + (drift_velocity - (x(i, size(x,dim=2)-1) - x(i, 0)) / size(x,dim=2))**2
+		end do
+			std_dev = sqrt(std_dev/(N-1))
 
-	write(12, *) tau, drift_velocity
-	close(12)
+		write(12, *) tau, drift_velocity, std_dev
+		close(12)
+	else
+		write(*,*) 'The number of particles is too small to get an accurate measurment of the average drift velocity.'
+		write(*,*) 'You should use N >= 25. You have N = ', N
+	end if
 end subroutine
     
     
@@ -289,7 +327,7 @@ subroutine write_trajectory_to_file()
 	end if
 	
 	do i = 0, size(x, dim=1) - 1
-		write(1,*) x(i,0:size(x, dim=2)-1:10)						!// x = [[]]
+		write(1,*) x(i,0:size(x, dim=2)-1:measurementPeriod)		!// x = [[]]
 	end do
 	close(unit=1)
 	
@@ -312,6 +350,7 @@ subroutine write_constants_to_file()
 	write(13,*) dU									!// dU
 	write(13,*) L									!// L
 	write(13,*) kT									!// kT
+	write(13,*) measurementPeriod
 	
 	close(unit=13)
 end subroutine
