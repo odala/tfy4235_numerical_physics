@@ -13,27 +13,27 @@ import scipy
 from scipy.integrate import quad
 
 # Read the constants from the file "constants.txt"
-def read_constants():
-    fin = open("constants" + '.txt', 'r')
+def read_constants(filename):
+    fin = open(filename, 'r')
     N, nSteps = [int(x) for x in fin.readline().split()]     # read first line
-    dt = [float(x) for x in fin.readline().split()]                # read second line
-    dt = dt[0]
+    delta_t = [float(x) for x in fin.readline().split()]     # read second line
+    delta_t = delta_t[0]
     alfa = [float(x) for x in fin.readline().split()]    
     alfa = alfa[0]
     tau = [float(x) for x in fin.readline().split()]
     tau = tau[0]
-    gama = [float(x) for x in fin.readline().split()]
-    gama = gama[0]
+    zeta = [float(x) for x in fin.readline().split()]
+    zeta = zeta[0]
+    r = [float(x) for x in fin.readline().split()]
+    r = r[0]
     dU = [float(x) for x in fin.readline().split()]    
     dU = dU[0]
     L = [float(x) for x in fin.readline().split()]    
     L = L[0]
     kT = [float(x) for x in fin.readline().split()]        
     kT = kT[0]
-    measurementPeriod = [int(x) for x in fin.readline().split()]
-    measurementPeriod = measurementPeriod[0]
     fin.close()
-    return (N, nSteps, dt, alfa, tau, gama, dU, L, kT, measurementPeriod)
+    return (N, nSteps, delta_t, alfa, tau, zeta, r, dU, L, kT)
 
 # The potential
 def potential(x, alfa):
@@ -46,8 +46,7 @@ def potential(x, alfa):
 
 
 # Plot the trajectory of the particle(s) and the potential they are in
-def plot_trajectory(alfa, tau):
-    data = np.loadtxt('trajectory.txt')
+def plot_trajectory(data, alfa, tau):
     dim1, dim2 = data.shape
     minimum = data.min()
     maximum = data.max()
@@ -55,7 +54,7 @@ def plot_trajectory(alfa, tau):
     trajectory = plt.figure()
     define_color_cycle(trajectory)
     
-    # Plot of the particles    
+    # Plotting particles    
     y = np.linspace(0, (dim2 - 1), dim2)
     for i in range(0, dim1):
         plt.plot(scale_length*1.0e6*data[i][:], scale_time*y, linewidth = 0.3)
@@ -64,13 +63,12 @@ def plot_trajectory(alfa, tau):
     plt.axis([minimum*scale_length*1.0e6, maximum*scale_length*1.0e6, 0.0, y[-1]*scale_time])
     plt.title(r'Trajectories of the particles with $\tau$ = %f'%(tau), fontsize = 20)
     
-    # Plot of the potential
+    # Plotting potential
     nPoints = 250
     x = np.linspace(minimum, maximum, nPoints)
     pot = np.zeros(nPoints)
     for i in range(0, len(x)):
         pot[i] = scale_potential/kT*potential(x[i], alfa)            # Potential in factors of kT
-    #plt.plot(x*scale_length*1.0e6, 0.2*y[-1]/max(pot) * pot, 'k')        # The potential as a graph
 
     stuff = np.linspace(0, y[-1], nPoints)
     X,Y = np.meshgrid(x*scale_length*1.0e6, stuff)
@@ -86,9 +84,8 @@ def plot_trajectory(alfa, tau):
     plt.savefig('fig/trajectory' + '.png');
     
 
-# Plots the motion of the ensemble of particles and how the particle density behaves in time
-def plot_ensemble_in_time():
-    data = np.loadtxt('trajectory_tau04.00_N100_test.txt')
+# Plots the motion of the ensemble of particles and how the particle density behaves in time, 3D-plot
+def plot_ensemble_in_time(data):
     dim1, dim2 = data.shape
 
     ensemble_motion = plt.figure()
@@ -100,7 +97,7 @@ def plot_ensemble_in_time():
 
     n = 4
     
-    t = np.linspace(0.0, dim2 - 1, n)        # from float(dim2/(n+1))
+    t = np.linspace(1000, dim2 - 1, n)
     t = np.floor(t)
     
     verts = []
@@ -109,30 +106,35 @@ def plot_ensemble_in_time():
     zs = np.linspace(0.0, 1.0*(n-1), n)
     hist_max = 0.0
     
+    D = kT/gama
+    print 'D: ', D
+
     for z in zs:
         hist, x_bins = np.histogram(data[:, t[z]], bins=nbins, range=(start, stop), normed=False)
         if (max(hist) > hist_max):
             hist_max = max(hist)
-        x_center = (x_bins[:-1] + x_bins[1:]) / 2
-        verts.append(zip(x_center, hist))
-        ax.bar(x_center, hist, align='center', zs=z, zdir='y', alpha=0.4, width = (x_center[1] - x_center[0]))
-        D = kT/gama
-        #hist_teo = N/np.sqrt(4*np.pi*D*t[z]*scale_time) * np.exp(-np.power((scale_length*x_center), 2)/(4*D*t[z]*scale_time))
-        #verts2.append(zip( x_center,  hist_teo))
+        x_center = scale_length*(x_bins[:-1] + x_bins[1:]) / 2
+        verts.append(zip(x_center*1e6, hist))
+        ax.bar(x_center, hist, align='center', zs=t[z]*scale_time, zdir='y', alpha=0.4, width = (x_center[1] - x_center[0]))
+        print 'time: ', t[z]*scale_time
+        print N/np.sqrt(4*np.pi*t[z]*scale_time*D)
+        hist_teo = N*np.exp(-np.power(x_center, 2)/(4*D*t[z]*scale_time))
+        print max(np.exp(-np.power(x_center, 2)/(4*D*t[z]*scale_time)))
+        verts2.append(zip( x_center,  hist_teo))
     
     # Convert verts to poly
     cc = lambda c: colorConverter.to_rgba(c, alpha=0.6)
-    poly = PolyCollection(verts)
-    poly.set_alpha(0.7)
-    ax.add_collection3d(poly, zs=zs, zdir = 'y')
-    #poly2 = PolyCollection(verts2)
-    #poly2.set_alpha(0.7)
-    #ax.add_collection3d(poly2, zs=zs, zdir = 'y')
+    #poly = PolyCollection(verts)
+    #poly.set_alpha(0.7)
+    #ax.add_collection3d(poly, zs=t, zdir = 'y')
+    poly2 = PolyCollection(verts2)
+    poly2.set_alpha(0.7)
+    ax.add_collection3d(poly2, zs=t*scale_time, zdir = 'y')
     
     ax.set_xlabel('Position [$\mu$m/s]')
     ax.set_xlim3d(min(x_center), max(x_center))
     ax.set_ylabel('Time [s]')
-    ax.set_ylim3d(min(zs), max(zs))
+    ax.set_ylim3d(min(t)*scale_time, max(t)*scale_time)
     ax.set_zlabel('Number of particles')
     ax.set_zlim3d(0.0, hist_max)
     
@@ -166,7 +168,7 @@ def make_boltzmann_histogram(data,  dU, kT):
     boltzmann_dist = lambda U: np.exp(-U/kT) / (kT*(1-np.exp(-dU/kT)))
     U = np.linspace(minimum, maximum, 1000)
     plt.plot( U, boltzmann_dist(U) )
-    print 'The integral of the Boltzmann distribution from 0.0 to 5.0E-20 = ', scipy.integrate.quad(boltzmann_dist, 0.0, 5.0e-20)
+    #print 'The integral of the Boltzmann distribution from 0.0 to 5.0E-20 = ', scipy.integrate.quad(boltzmann_dist, 0.0, 5.0e-20)
     
     # Saving figure
     plt.savefig('fig/boltzmann_distribution' + '.png');
@@ -192,13 +194,13 @@ def plot_gaussian():
 
 
 # Plots the drift velocity versus flashing period    
-def plot_drift_velocity():
-    temp_arr = np.loadtxt('drift_velocity.txt')
+def plot_drift_velocity(filename):
+    temp_arr = np.loadtxt(filename)     # drift velocity as total diffusion length per total diffusion time
     temp_arr = temp_arr[temp_arr[:,0].argsort()]
     taus = temp_arr[:, 0]
-    drift_velocity = (scale_length*1.0e6 / T) * np.array(temp_arr[:, 1])
-    std_dev = temp_arr[:, 2]
-    print drift_velocity[-1]
+    drift_velocity = 1.0e6 * temp_arr[:, 1]
+    std_dev = 1.0e6 * temp_arr[:, 2]
+    tau_w_max_vel = taus[drift_velocity.argmax()]
     drift_vel = plt.figure()
     plt.plot(taus, drift_velocity)
     plt.errorbar(taus, drift_velocity, yerr=std_dev, fmt=None, color='b')
@@ -206,7 +208,9 @@ def plot_drift_velocity():
     plt.xlabel(r'Period of flash, $\tau$ [s]', fontsize=15)
     
     # Saving figure
-    plt.savefig('fig/drift_velocity' + '.png');
+    plt.savefig('fig/' + filename + '.png');
+    
+    return tau_w_max_vel
     
     
     
@@ -214,34 +218,45 @@ def plot_drift_velocity():
 ### ------------------------------- MAIN ------------------------------- ###
 ############################################################################
 
-do_check_gaussian = False
 do_plot_trajectory = False
+do_plot_ensemble_in_time = False
+do_plot_drift_velocity = True
+do_check_gaussian = False
 do_plot_boltzmann = False
-do_plot_drift_velocity = False
-do_plot_ensemble_in_time = True
 
-# Read in data [DT IS IN REDUCED UNITS]
-N, nSteps, dt, alfa, tau, gama, dU, L, kT, measurementPeriod = read_constants()
+# Read in data [dt IS IN REDUCED UNITS!]
+
+std_tau = 0.1
+std_N   = 100
+
+file_const = 'constants_tau1.500_N100.txt'
+file_trajectory = 'trajectory_tau1.500_N100.txt'
+file_vd = 'drift_velocity_t11._N100.txt'
+
+N, nSteps, delta_t, alfa, tau, zeta, r, dU, L, kT = read_constants(file_const)
+gama = 6.0*np.pi*zeta*r
 omega = dU/(gama*L**2)
-T = nSteps*measurementPeriod*dt/omega
+T = nSteps*delta_t/omega
+data = np.loadtxt(file_trajectory)
 
 # Convert from reduced units to real units with these scaling factors
-scale_length = L                            # micrometer of real length
-scale_time = measurementPeriod*dt/omega        # time steps
-scale_potential = dU                        # potential
+scale_length = L               # micrometer of real length
+scale_time = delta_t/omega     # time steps
+scale_potential = dU           # potential
 
 if do_plot_trajectory:
-    plot_trajectory(alfa, tau)
+    plot_trajectory(data, alfa, tau)
     
 if do_plot_ensemble_in_time:
-    plot_ensemble_in_time()
+    plot_ensemble_in_time(data)
 
 if do_plot_drift_velocity:
-    plot_drift_velocity()
+    tau_w_max_vel = plot_drift_velocity(file_vd)
+    print 'The tau which results in the maximum drift velocity is tau = ', tau_w_max_vel
     
 if do_plot_boltzmann:
     U = np.zeros(len(data[0][:]))
-    for i in range(0, len(data[0][:])):                # convert to real potential
+    for i in range(0, len(data[0][:])):         # convert to real potential
         U[i] = dU*potential(data[0][i], alfa)
     
     make_boltzmann_histogram(U, dU, kT)
