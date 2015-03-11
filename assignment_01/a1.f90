@@ -19,7 +19,7 @@ program biased_brownian_motion
     
     ! ######## Variables #########    
     integer, parameter                  :: N = 100
-    integer, parameter                  :: nSteps = 9999999
+    integer, parameter                  :: nSteps = 1100000
     real(wp)                            :: r                    !// m
     real(wp)                            :: x0
     real(wp)                            :: kT                   !// eV
@@ -29,18 +29,22 @@ program biased_brownian_motion
     real(wp)                            :: tau                  !// the period of the flash
     real(wp)                            :: zeta, gama, omega    !// dynamic viscosity, friction constant, kT/dU, dU/gama/L**2
     real(wp)                            :: dt
-    real(wp), dimension(0:N-1,0:nSteps-1):: x
+    real(wp), dimension(0:nSteps-1)     :: x
+    real(wp), dimension(0:N-1)          :: vd
     real(wp)                            :: F_ext
     integer                             :: i, j, res
-    integer, parameter                  :: measurement_period = 100
+    integer, parameter                  :: measurement_period = 1000
     real(wp), parameter                 :: pi = 4.0_wp* atan(1.0_wp)
+
+    ! -- files
+    character(len=1024)             :: file_trajectory
     
     ! -- standard values
-    real(wp), parameter     :: std_r        = 12E-9_wp  ! m
+    real(wp), parameter     :: std_r        = 12e-9  !12E-9_wp  ! m
     real(wp), parameter     :: std_L        = 20E-6_wp  ! m
     real(wp), parameter     :: std_dU       = 80.0_wp   ! eV
     real(wp), parameter     :: std_alfa     = 0.2_wp
-    real(wp), parameter     :: std_tau      = 4.0_wp     
+    real(wp), parameter     :: std_tau      = 0.5_wp     
     real(wp), parameter     :: std_zeta     = 1E-3_wp   ! Pa*s
     real(wp), parameter     :: std_kT       = 0.026_wp  ! Termisk energi i eV
     real(wp), parameter     :: std_x0       = 0.0_wp
@@ -57,98 +61,95 @@ program biased_brownian_motion
     !real(wp), parameter     :: std_x0        = 0.0_wp
     !real, parameter         :: fraction_off  = 0.5_wp
     
-    
     !// Initialise the random seed
     call init_random_seed    
     
     !// Read in values from the user
     call input_potential()    
-    call input_particle(-1)        !// place this inside a loop to get individual radiuses and starting positions for the different particles; set -1 to i.
+    call input_particle(-1)        ! place inside loop to get individual r/x0
     gama = 6.0_wp*pi*zeta*r
     omega = dU/(gama*L**2)
 
     !// Criterion for the time step
     call get_dt()
-    write(*,*) "Timestep [s]: ", dt/omega
+    write(*,*) 'Timestep [s]: ', dt/omega
     write(*, fmt='(A,F0.1)') 'Total time [s]: ', dt*nSteps/omega
     
-    !// The external force due to gravity (?!)
-    F_ext = 0.0_wp     !- 4.0_wp/3.0_wp * pi * r**3 * (1.05e3 - 0.9982071e3_wp)*9.81*sin(pi/4.0_wp)
-    
-    do while (tau <= 0.5_wp)
+    !// Write to file
+    call write_constants_to_file()
+    call create_empty_trajectory_file()
+
+    do while (tau <= 5.0)
         write(*,*) tau
         !// Start the diffusion process for the N particles
         do i = 0, (N-1)
+            !if (mod(i, 10) == 0) then
+                !write(*,fmt='(I0, A)', advance='no') i, ' '
+            !end if
             
-            !// Set the starting position for the particles
-            x(i, 0) = x0
-
+            !// Set the starting position for the particles and then update x
+            x(0) = x0
             do j = 1, nSteps - 1
-                x(i, j) = updateX(x(i, j-1), j*dt, dt)
+                x(j) = updateX(x(j-1), j*dt, dt)
             end do
             
+            !call append_trajectory_to_file(file_trajectory)
+            vd(i) = (x(nSteps-1) - x(0))*L / (dt*nSteps/omega)
         end do
-        
         call append_drift_velocity_to_file()
-        tau = tau + 0.1_wp
+        tau = tau + 0.01_wp
     end do
-    
-    call write_constants_to_file()
-    call write_trajectory_to_file()
-    
     !call system ('python make_plot.py')
     
 contains    
 
 !
 ! Update the position of the particle using the Euler scheme
-real(wp) function updateX(x, t, dt)
-    real(wp), intent(in)        :: x, t, dt
+function updateX(x, t, dt) result(new_x)
+    real(wp), intent(in)    :: x, t, dt
+    real(wp)                :: new_x       
     
-    updateX = x + F(x, t) * dt + sqrt(2*kT/dU*dt)*random_gauss()
-    return
+    new_x = x + F(x, t) * dt + sqrt(2*kT/dU*dt)*random_gauss()
     
 end function
 
 
 !
 !Compute the potential U(x, t)
-real(wp) function U(xPos, time)
-    real(wp), intent(in)        :: time
-    real(wp), intent(in)        :: xPos
-    real(wp)                    :: x
-    real(wp)                    :: t
+function U(xPos, time) result(pot)
+    real(wp)                    :: pot
+    real(wp), intent(in)        :: time, xpos
+    real(wp)                    :: t, x
     
     x = xPos - floor(xPos)
     t = time - floor(time/(tau*omega))*tau*omega
     
     if (tau /= 0.0_wp .and. t >= 0.0_wp .and. t < fraction_off*tau*omega) then
-        U = 0.0_wp
+        pot = 0.0_wp
     else
         if (x >= 0.0_wp .and. x < alfa) then
-            U = x/alfa
+            pot = x/alfa
         else if (x >= alfa .and. x < 1.0_wp) then
-            U = (1.0_wp-x)/(1.0_wp-alfa)
+            pot = (1.0_wp-x)/(1.0_wp-alfa)
         end if
     end if
-    
-    return
+
 end function
 
 
 !
 ! Compute the force due to the potential U(x, t)
-real(wp) function F(x, t)
+function F(x, t) result(force)
+    real(wp)                    :: force
     real(wp), intent(in)        :: x, t
     real(wp)                    :: dx = 1.0e-3_wp
     
     if (U(x,t) == 0.0_wp) then
-        F = F_ext
+        force = 0.0_wp
     else
-        F = - ( U(x + dx, t) - U(x - dx, t) ) / (2.0_wp*dx) + F_ext
+        force = - ( U(x + dx, t) - U(x - dx, t) ) / (2.0_wp*dx)
     end if
     
-    return
 end function
 
 !
@@ -157,11 +158,11 @@ subroutine get_dt()
     dt = 0.1_wp
     
     if ( 1/alfa >= 1/(1-alfa) ) then
-        do while ( 1/alfa*dt + 4*sqrt(2*kT/dU*dt) > 0.1_wp*alfa )
+        do while ( 1/alfa*dt + 4*sqrt(2*kT/dU*dt) > 0.5_wp*alfa )
             dt = dt/2
         end do
     else 
-        do while ( 1/(1-alfa)*dt + 4*sqrt(2*kT/dU*dt) > 0.1_wp*alfa )
+        do while ( 1/(1-alfa)*dt + 4*sqrt(2*kT/dU*dt) > 0.5_wp*alfa )
             dt = dt/2
         end do
     end if
@@ -173,6 +174,92 @@ subroutine get_dt()
     end if
     
 end subroutine
+
+
+
+!
+! Append the drift velocitys to file (diffusion length per s) )
+subroutine append_drift_velocity_to_file()
+    real(wp)                :: avg_vd
+    real                    :: std_dev
+    logical                 :: exist
+    integer                 :: i
+    character(len=1024)     :: filename
+    write(filename, fmt='(A,I0,A, F0.0, A)') 'drift_velocity_N', N, '_t', dt*nSteps/omega, '.txt'
+    filename = trim(filename)
+
+    if (N >= 50) then
+        inquire(file=filename, exist=exist)
+        if (exist) then
+            open(12, file=filename, status="old", position="append", action="write")
+        else
+            open(12, file=filename, status="new", action="write")
+        end if
+    
+        avg_vd = sum(vd)/N
+
+        std_dev = 0.0_wp
+        do i = 0, N-1
+            std_dev = std_dev + (avg_vd - vd(i))**2
+        end do
+        std_dev = sqrt(std_dev/(N-1))
+
+        write(12, *) tau, avg_vd, std_dev
+        close(12)
+    else
+        write(*,*) 'The number of particles is too small to get an accurate measurment of the average drift velocity.'
+        write(*,*) 'You should use N >= 50. You have N = ', N
+    end if
+end subroutine
+
+subroutine create_empty_trajectory_file()
+    write(file_trajectory, fmt='(A,I0,A,F0.1,A, F0.2, A)') 'trajectory_N', N, '_rnm', r/1.0e-9, '_tau', tau, '.txt'
+    file_trajectory = trim(file_trajectory)
+    open(unit=13,file=file_trajectory, form="formatted", status="replace", action="write")
+    close(unit=13) 
+end subroutine
+    
+!
+! Writes the trajectory of the particle(s) to file
+subroutine append_trajectory_to_file(filename)
+    character(len=*), intent(in)   :: filename
+
+    open(unit=1, file=filename, status="old", position="append", action="write")
+    
+    write(1,*) x(0:nSteps-1:measurement_period)
+    
+    close(unit=1)
+    
+end subroutine
+
+
+!
+! Writes constants to file
+subroutine write_constants_to_file()
+    character(len=1024)            :: filename
+
+    write(filename, fmt='(A,I0,A,F0.1,A, F0.2, A)') 'constants_N', N, '_rnm', r/1.0e-9, '_tau', tau, '.txt'
+    filename = trim(filename)
+    
+    open(unit=13,file=filename, form="formatted", status="replace", action="write", iostat = res)
+    if (res /= 0) then
+        write(*,*) "Error in opening file, status", res
+        stop
+    end if
+
+    write(13,*) N, nSteps/measurement_period   !// #of particles, #of time steps
+    write(13,*) dt * measurement_period              !// delta_t
+    write(13,*) alfa                                !// alfa
+    write(13,*) tau                                 !// tau
+    write(13,*) zeta                                !// zeta
+    write(13,*) r                                   !// radius of particle
+    write(13,*) dU                                  !// dU
+    write(13,*) L                                   !// L
+    write(13,*) kT                                  !// kT
+    
+    close(unit=13)
+end subroutine
+
 
 
 !
@@ -234,7 +321,6 @@ subroutine input_w_default(param, default_param)
     real(wp), intent(in)  :: default_param
 
     integer, parameter              :: MAX_LENGTH   = 100
-    !character(len=*), parameter     :: format_0     = "(A)"
     character(len=MAX_LENGTH)       :: input_str
     real(wp)                        :: input_real
     integer                         :: flag
@@ -250,110 +336,16 @@ subroutine input_w_default(param, default_param)
 end subroutine
 
 
-!
-! Append the drift velocitys to file (diffusion length per s) )
-subroutine append_drift_velocity_to_file()
-    real(wp)                :: avg_vd
-    real                    :: std_dev
-    !real, dimension(0:N-1)  :: vd
-    logical                 :: exist
-    integer                 :: i
-    character(len=1024)     :: filename
-
-    write(filename, fmt='(A,F0.0,A,I0,A)') 'drift_velocity_t', dt*nSteps/omega, '_N', N, '.txt'
-    filename = trim(filename)
-
-    if (N >= 25) then 
-
-        inquire(file=filename, exist=exist)
-        if (exist) then
-            open(12, file=filename, status="old", position="append", action="write")
-        else
-            open(12, file=filename, status="new", action="write")
-        end if
-    
-        avg_vd = 0.0_wp
-    
-        do i = 0, N - 1
-            avg_vd = avg_vd + (x(i, nSteps-1) - x(i, 0))*L / (dt*nSteps/omega)
-        end do
-    
-        avg_vd = avg_vd / N
-        
-        std_dev = 0.0_wp
-        do i = 0, N-1
-            std_dev = std_dev + (avg_vd - (x(i, nSteps-1) - x(i, 0))*L / (dt*nSteps/omega))**2
-        end do
-            std_dev = sqrt(std_dev/(N-1))
-
-        write(12, *) tau, avg_vd, std_dev
-        close(12)
-    else
-        write(*,*) 'The number of particles is too small to get an accurate measurment of the average drift velocity.'
-        write(*,*) 'You should use N >= 25. You have N = ', N
-    end if
-end subroutine
-    
-    
-!
-! Writes the trajectory of the particle(s) to file
-subroutine write_trajectory_to_file()
-    character(len=1024)            :: filename
-
-    write(filename, fmt='(A,F0.3,A,I0,A)') 'trajectory_tau', tau, '_N', N, '.txt'
-    filename = trim(filename)
-
-    open(unit=1,file=filename, form="formatted", status="replace", action="write", iostat = res)
-    if (res /= 0) then
-        write(*,*) "Error in opening file, status", res
-        stop
-    end if
-    
-    do i = 0, size(x, dim=1) - 1
-        write(1,*) x(i,0:nSteps-1:measurement_period)        !// x = [[]]
-    end do
-    close(unit=1)
-    
-end subroutine
-
-
-!
-! Writes constants to file
-subroutine write_constants_to_file()
-    character(len=1024)            :: filename
-
-    write(filename, fmt='(A,F0.3,A,I0,A)') 'constants_tau', tau, '_N', N, '.txt'
-    filename = trim(filename)
-    
-    open(unit=13,file=filename, form="formatted", status="replace", action="write", iostat = res)
-    if (res /= 0) then
-        write(*,*) "Error in opening file, status", res
-        stop
-    end if
-
-    write(13,*) N, nSteps/measurement_period   !// #of particles, #of time steps
-    write(13,*) dt * measurement_period              !// delta_t
-    write(13,*) alfa                                !// alfa
-    write(13,*) tau                                 !// tau
-    write(13,*) zeta                                !// zeta
-    write(13,*) r                                   !// radius of particle
-    write(13,*) dU                                  !// dU
-    write(13,*) L                                   !// L
-    write(13,*) kT                                  !// kT
-    
-    close(unit=13)
-end subroutine
-
-
 
 !
 ! Gaussian random number
 ! Draw Gaussian distributed random numbers. Normal distribution is 
 ! implemented by the polar Box-Müller algorithm using the uniform 
 ! distribution from random_number().
-real(wp) function random_gauss()
-    real(wp)        :: rand1, rand2, w
-    integer            :: i
+function random_gauss() result(rand_gauss)
+    real(wp)            :: rand_gauss
+    real(wp)            :: rand1, rand2, w
+    integer             :: i
     
     w = 0.0_wp
     do while(w == 0.0_wp .OR. w >= 1)
@@ -364,7 +356,7 @@ real(wp) function random_gauss()
         w = rand1**2 + rand2**2
     end do
 
-    random_gauss = rand1 * SQRT( - 2.0_wp * LOG(w) / w)
+    rand_gauss = rand1 * SQRT( - 2.0_wp * LOG(w) / w)
 end function
 
 
