@@ -18,8 +18,8 @@ program biased_brownian_motion
     integer, parameter :: wp = dp
     
     ! ######## Variables #########    
-    integer, parameter                  :: N = 100
-    integer, parameter                  :: nSteps = 1100000
+    integer, parameter                  :: N = 1000
+    integer, parameter                  :: nSteps = 110000!0
     real(wp)                            :: r                    !// m
     real(wp)                            :: x0
     real(wp)                            :: kT                   !// eV
@@ -44,7 +44,7 @@ program biased_brownian_motion
     real(wp), parameter     :: std_L        = 20E-6_wp  ! m
     real(wp), parameter     :: std_dU       = 80.0_wp   ! eV
     real(wp), parameter     :: std_alfa     = 0.2_wp
-    real(wp), parameter     :: std_tau      = 0.5_wp     
+    real(wp), parameter     :: std_tau      = 0.0_wp     
     real(wp), parameter     :: std_zeta     = 1E-3_wp   ! Pa*s
     real(wp), parameter     :: std_kT       = 0.026_wp  ! Termisk energi i eV
     real(wp), parameter     :: std_x0       = 0.0_wp
@@ -70,6 +70,11 @@ program biased_brownian_motion
     gama = 6.0_wp*pi*zeta*r
     omega = dU/(gama*L**2)
 
+    !character(len=1024)     :: realisation
+    !write(realisation, fmt='(A,I0,A,F0.0,A,F0.4)') '_N', N, '_t', dt*nSteps/omega, '_dU', dU*6.24150934e18
+    !realisation = trim(realisation)
+    !write(*,*) 'Realisation: ', realisation
+
     !// Criterion for the time step
     call get_dt()
     write(*,*) 'Timestep [s]: ', dt/omega
@@ -79,26 +84,26 @@ program biased_brownian_motion
     call write_constants_to_file()
     call create_empty_trajectory_file()
 
-    do while (tau <= 5.0)
-        write(*,*) tau
-        !// Start the diffusion process for the N particles
-        do i = 0, (N-1)
-            !if (mod(i, 10) == 0) then
-                !write(*,fmt='(I0, A)', advance='no') i, ' '
-            !end if
-            
-            !// Set the starting position for the particles and then update x
-            x(0) = x0
-            do j = 1, nSteps - 1
-                x(j) = updateX(x(j-1), j*dt, dt)
-            end do
-            
-            !call append_trajectory_to_file(file_trajectory)
-            vd(i) = (x(nSteps-1) - x(0))*L / (dt*nSteps/omega)
+
+    write(*,*) tau
+    !// Start the diffusion process for the N particles
+    do i = 0, (N-1)
+        write(*,*) i
+        !if (mod(i, 10) == 0) then
+            !write(*,fmt='(I0, A)', advance='no') i, ' '
+        !end if
+        
+        !// Set the starting position for the particles and then update x
+        x(0) = x0
+        do j = 1, nSteps - 1
+            x(j) = updateX(x(j-1), j*dt, dt)
         end do
-        call append_drift_velocity_to_file()
-        tau = tau + 0.01_wp
+        
+        call append_trajectory_to_file(file_trajectory)
+        !vd(i) = (x(nSteps-1) - x(0))*L / (dt*nSteps/omega)
     end do
+    !call append_drift_velocity_to_file()
+    !tau = tau + 0.01_wp
     !call system ('python make_plot.py')
     
 contains    
@@ -213,7 +218,7 @@ subroutine append_drift_velocity_to_file()
 end subroutine
 
 subroutine create_empty_trajectory_file()
-    write(file_trajectory, fmt='(A,I0,A,F0.1,A, F0.2, A)') 'trajectory_N', N, '_rnm', r/1.0e-9, '_tau', tau, '.txt'
+    write(file_trajectory, fmt='(A,I0,A,F0.1,A,F0.2,A,F0.4,A)') 'trajectory_N', N, '_rnm', r/1.0e-9, '_tau', tau, '_dU', dU*6.24150934e18, '.txt'
     file_trajectory = trim(file_trajectory)
     open(unit=13,file=file_trajectory, form="formatted", status="replace", action="write")
     close(unit=13) 
@@ -238,7 +243,7 @@ end subroutine
 subroutine write_constants_to_file()
     character(len=1024)            :: filename
 
-    write(filename, fmt='(A,I0,A,F0.1,A, F0.2, A)') 'constants_N', N, '_rnm', r/1.0e-9, '_tau', tau, '.txt'
+    write(filename, fmt='(A,I0,A,F0.1,A, F0.2, A, F0.4, A)') 'constants_N', N, '_rnm', r/1.0e-9, '_tau', tau, '_dU', dU*6.24150934e18, '.txt'
     filename = trim(filename)
     
     open(unit=13,file=filename, form="formatted", status="replace", action="write", iostat = res)

@@ -9,14 +9,15 @@ from mpl_toolkits.mplot3d.axes3d import Axes3D
 from matplotlib import cm 
 from matplotlib.collections import PolyCollection
 from matplotlib.colors import colorConverter
+from matplotlib import animation
 import scipy
 from scipy.integrate import quad
-
 
 # ---------------------------------------------------------------------------
 # Read the constants from the file "constants.txt"
 # ---------------------------------------------------------------------------
-def read_constants(filename):
+def read_constants(realisation):
+    filename = 'constants' + realisation + '.txt'
     fin = open(filename, 'r')
     N, nSteps = [int(x) for x in fin.readline().split()]     # read first line
     delta_t = [float(x) for x in fin.readline().split()]     # read second line
@@ -55,21 +56,20 @@ def potential(x, alfa):
 # Plot the trajectory of the particle(s) and the potential they are in
 # ---------------------------------------------------------------------------
 def plot_trajectory(data, alfa, tau, realisation):
-    dim1, dim2 = data.shape
-    minimum = -30e-6#data.min()
+    minimum = -100e-6#data.min()
     maximum = 720e-6#data.max()
     
     trajectory = plt.figure()
     define_color_cycle(trajectory)
     
     # Plotting particles    
-    y = np.linspace(0, (dim2 - 1), dim2)
-    for i in range(0, dim1):
+    y = np.linspace(0, (nSteps - 1), nSteps)
+    for i in range(0, N):
         plt.plot(1.0e6*data[i][:], scale_time*y, linewidth = 0.3)
     plt.ylabel(r'Time [s]', fontsize=15)
     plt.xlabel(r'Position [\mu m]', fontsize=15)
     plt.axis([minimum*1.0e6, maximum*1.0e6, 0.0, y[-1]*scale_time])
-    plt.title(r'Trajectories of the particles with $\tau$ = %f'%(tau), fontsize = 20)
+    print 'Plotted the trajectories of the particles with tau = ', tau
     
     # Plotting potential
     nPoints = 250
@@ -90,36 +90,32 @@ def plot_trajectory(data, alfa, tau, realisation):
     
     # Saving figure
     plt.savefig('fig/trajectory' + realisation + '.png');
-    
+
 
 # ---------------------------------------------------------------------------
 # Plots the motion of the ensemble of particles and how the particle density
 # behaves in time, 3D-plot
 # ---------------------------------------------------------------------------
 def plot_ensemble_in_time(data, realisation):
-    dim1, dim2 = data.shape
-
     ensemble_motion = plt.figure()
     ax = ensemble_motion.gca(projection='3d')
     
+    # initialise start, stop and nbins so that each bin is one ratchet
     start = np.floor(data.min()/scale_length)- (1.0-alfa)
     stop = np.ceil(data.max()/scale_length) + alfa
-    print '[start, stop]', start, stop
     nbins = np.ceil((stop-start))
     start = scale_length*start
     stop = scale_length*stop
-    print 'nbins', nbins
 
     n = 4
-    
-    t = np.linspace(10, dim2 - 1, n)
-    t = np.floor(t)
+    ts = np.linspace(10, nSteps - 1, n)
+    ts = np.floor(ts)
     
     verts = []
     verts2 = []
     zs = np.linspace(0.0, 1.0*(n-1), n)
     hist_max = 0.0
-    
+
     D = kT/gama
 
     vd = 0.0
@@ -127,19 +123,19 @@ def plot_ensemble_in_time(data, realisation):
         vd = vd + (data[i, -1] - data[i, 0])/T/N        
 
     for z in zs:
-        hist, x_bins = np.histogram(data[:, t[z]], bins=nbins, range=(start, stop), normed=False)
+        t = ts[z]*scale_time
+        hist, x_bins = np.histogram(data[:, ts[z]], bins=nbins, range=(start, stop), normed=False)
         if (max(hist) > hist_max):
             hist_max = max(hist)
-        x_center = (x_bins[:-1] + x_bins[1:]) / 2
-        print 'TIME: ', t[z]*scale_time
-        x_teo = x_center - vd*t[z]*scale_time
-        hist_teo = N/np.sqrt(4*np.pi*D*t[z]*scale_time)*np.exp(-np.power(x_teo, 2)/(4*D*t[z]*scale_time))
-        print 'MAX: ', max(hist_teo)
-        x_center = 1.0e6*x_center     # is now in micrometer
+        x_center = 1.0e6*(x_bins[:-1] + x_bins[1:]) / 2     # is now in micrometer
         verts.append(zip(x_center, hist))
-        verts2.append(zip( x_center,  hist_teo))
-        ax.bar(x_center, hist, align='center', zs=t[z]*scale_time, zdir='y', alpha=0.4, width = (x_center[1] - x_center[0]))
-        
+        ax.bar(x_center, hist, align='center', zs=t, zdir='y', alpha=0.4, width = (x_center[1] - x_center[0]))
+        if (np.floor(dU*6.24150934e18+0.5) == 0):
+            x_teo = x_center*1e-6 - vd*t
+            DUMMIE = 0.04 # WRONG!!! CHECK THIS!!
+            hist_teo = N/np.sqrt(4*np.pi*DUMMIE*t)*np.exp(-np.power(x_teo, 2)/(4*D*t))
+            verts2.append(zip( x_center,  hist_teo))
+
     
     # Convert verts to poly
     cc = lambda c: colorConverter.to_rgba(c, alpha=0.6)
@@ -148,18 +144,18 @@ def plot_ensemble_in_time(data, realisation):
     #ax.add_collection3d(poly, zs=t, zdir = 'y')
     poly2 = PolyCollection(verts2)
     poly2.set_alpha(0.7)
-    ax.add_collection3d(poly2, zs=t*scale_time, zdir = 'y')
+    ax.add_collection3d(poly2, zs=ts*scale_time, zdir = 'y')
     
     ax.set_xlabel('Position [$\mu$m/s]')
     ax.set_xlim3d(min(x_center), max(x_center))
     ax.set_ylabel('Time [s]')
-    ax.set_ylim3d(min(t)*scale_time, max(t)*scale_time)
+    ax.set_ylim3d(min(ts)*scale_time, max(ts)*scale_time)
     ax.set_zlabel('Number of particles')
     ax.set_zlim3d(0.0, hist_max)
     
     # Saving figure
     plt.savefig('fig/ensemble_motion' + realisation + '.png');
-    
+
     return vd
 
 
@@ -186,7 +182,7 @@ def make_boltzmann_histogram(data,  dU, kT):
     center = (bins[:-1] + bins[1:]) / 2
     histogram = plt.figure()        #plt.bar(center, hist, align='center', width=bins[1] - bins[0])            
     plt.plot(center, hist,'ro')
-    plt.title(r'Boltzmann Distribution for $dU / k_BT=$ %d'%(dU/kT), fontsize = 20)
+    print 'Generated a plot of the Boltzmann Distribution for dU / k_BT = ', dU/kT
     
     # Plot exact Boltzmann distribution
     boltzmann_dist = lambda U: np.exp(-U/kT) / (kT*(1-np.exp(-dU/kT)))
@@ -199,6 +195,7 @@ def make_boltzmann_histogram(data,  dU, kT):
     
 
 # ---------------------------------------------------------------------------
+# Standard Gaussian Random Number Generator
 # Checks if the gaussian Box-Muller algorithm really are a normal distribution
 # ---------------------------------------------------------------------------
 def plot_gaussian():
@@ -207,11 +204,9 @@ def plot_gaussian():
     rand_gauss = np.loadtxt('check_gaussian.txt')
     hist, bins = np.histogram(rand_gauss, bins=100, normed=True)
     center = (bins[:-1] + bins[1:]) / 2
-    gaussian = plt.figure()
-    #plt.bar(center, hist, align='center', width=bins[1] - bins[0])            
+    gaussian = plt.figure()           
     plt.plot(center, hist,'ro')
     plt.plot(x, normal_dist(x), 'b')
-    plt.title(r'Standard Gaussian Random Number Generator', fontsize = 20)
     
     # Saving figure
     plt.savefig('fig/normal_distribution' + '.png');
@@ -220,12 +215,11 @@ def plot_gaussian():
 # ---------------------------------------------------------------------------
 # Plots the drift velocity versus flashing period   
 # --------------------------------------------------------------------------- 
-def plot_drift_velocity(filename):
-    temp_arr = np.loadtxt(filename)     # drift velocity in m/s
-    temp_arr = temp_arr[temp_arr[:,0].argsort()]
-    taus = temp_arr[:, 0]
-    vd = 1.0e6 * temp_arr[:, 1]
-    std_dev = 1.0e6 * temp_arr[:, 2]
+def plot_drift_velocity(data, realisation):
+    data = data[data[:,0].argsort()]
+    taus = data[:, 0]
+    vd = 1.0e6 * data[:, 1]
+    std_dev = 1.0e6 * data[:, 2]
     tau_w_max_vel = taus[vd.argmax()]
     drift_vel = plt.figure()
     plt.plot(taus, vd, 'b*')
@@ -237,7 +231,7 @@ def plot_drift_velocity(filename):
     plt.xlabel(r'Period of flash, $\tau$ [s]', fontsize=15)
     
     # Saving figure
-    plt.savefig('fig/' + filename + '.png');
+    plt.savefig('fig/drift_velocity' + realisation + '.png');
     
     return tau_w_max_vel
     
@@ -246,43 +240,43 @@ def plot_drift_velocity(filename):
 ### ------------------------------- MAIN ------------------------------- ###
 ############################################################################
 
-do_plot_trajectory = True
+# Preferences
+do_plot_trajectory = False
 do_plot_ensemble_in_time = True
-do_plot_drift_velocity = True
+do_plot_drift_velocity = False
 do_check_gaussian = False
 do_plot_boltzmann = False
 
-# Read in data [dt IS IN REDUCED UNITS!]
+# Files to use
+realisations = ['_N1000_rnm12.0_tau.50_dU80.0000', '_N1000_rnm12.0_tau.00_dU.0000']
+# std: 0, potential off: 1, ...
+realisation = realisations[1]
 
-std_tau = 0.1
-std_N   = 100
-
-realisation = '_N1000_rnm12.0_tau.50'
-file_const = 'constants' + realisation + '.txt'
-file_trajectory = 'trajectory' + realisation + '.txt'
-file_vd = 'drift_velocity' + realisation + '.txt'
-
-N, nSteps, delta_t, alfa, tau, zeta, r, dU, L, kT = read_constants(file_const)
+# Read in data and set some constants
+N, nSteps, delta_t, alfa, tau, zeta, r, dU, L, kT = read_constants(realisation)
 gama = 6.0*np.pi*zeta*r
+D = kT/gama
 omega = dU/(gama*L**2)
 T = nSteps*delta_t/omega
 
 # Convert from reduced units to real units with these scaling factors
-scale_length = L               # micrometer of real length
-scale_time = delta_t/omega     # time steps
-scale_potential = dU           # potential
+scale_length = L               # reduced units -> meter
+scale_time = delta_t/omega     # time steps    -> seconds
+scale_potential = dU           # reduced units -> joule
 
-data = scale_length*np.loadtxt(file_trajectory)
+# Read in the trajectory and convert to real length
+data = scale_length*np.loadtxt('trajectory' + realisation + '.txt')
 
 if do_plot_trajectory:
     plot_trajectory(data, alfa, tau, realisation)
     
 if do_plot_ensemble_in_time:
     vd = plot_ensemble_in_time(data, realisation)
-    print 'The average drift velocity is: ', vd*1.0e6, 'micrometer/s'
+    #print 'The average drift velocity is: ', vd*1.0e6, 'micrometer/s'
 
 if do_plot_drift_velocity:
-    tau_w_max_vel = plot_drift_velocity(file_vd)
+    data = np.loadtxt('drift_velocity' + realisation + '.txt')                  # drift velocity in m/s
+    tau_w_max_vel = plot_drift_velocity(data, realisation)
     print 'The tau which results in the maximum drift velocity is tau = ', tau_w_max_vel
     
 if do_plot_boltzmann:
