@@ -68,9 +68,9 @@ program biased_brownian_motion
     write(*, fmt='(A,F0.1)') 'Total time [s]: ', dt*nSteps/omega
     
     !// Write to file
-    write(file_trajectory, fmt=file_fmt) 'trajectory_N', N, '_rnm', r/1.0e-9, '_tau', tau, '_dU', dU*6.24150934e18, '.txt'
-    write(file_constants,  fmt=file_fmt) 'constants_N', N, '_rnm', r/1.0e-9, '_tau', tau, '_dU', dU*6.24150934e18, '.txt'
-    write(file_vd, fmt=file_fmt) 'drift_velocity_N', N, '_rnm', r/1.0e-9, '_tau', tau, '_dU', dU*6.24150934e18, '.txt'
+    write(file_trajectory, fmt=file_fmt) 'data/trajectory_N', N, '_rnm', r/1.0e-9, '_tau', tau, '_dU', dU*6.24150934e18, '.txt'
+    write(file_constants,  fmt=file_fmt) 'data/constants_N', N, '_rnm', r/1.0e-9, '_tau', tau, '_dU', dU*6.24150934e18, '.txt'
+    write(file_vd, fmt=file_fmt) 'data/drift_velocity_N', N, '_rnm', r/1.0e-9, '_tau', tau, '_dU', dU*6.24150934e18, '.txt'
     file_trajectory = trim(file_trajectory)
     file_constants = trim(file_constants)
     file_vd = trim(file_vd)
