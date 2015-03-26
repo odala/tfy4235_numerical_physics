@@ -18,8 +18,8 @@ program biased_brownian_motion
     integer, parameter :: wp = dp
     
     ! ######## Variables #########    
-    integer, parameter                  :: N = 1000
-    integer, parameter                  :: nSteps = 110000!0
+    integer, parameter                  :: N = 10
+    integer, parameter                  :: nSteps =  3000000!1100000
     real(wp)                            :: r                    !// m
     real(wp)                            :: x0
     real(wp)                            :: kT                   !// eV
@@ -35,31 +35,23 @@ program biased_brownian_motion
     integer                             :: i, j, res
     integer, parameter                  :: measurement_period = 1000
     real(wp), parameter                 :: pi = 4.0_wp* atan(1.0_wp)
-
-    ! -- files
-    character(len=1024)             :: file_trajectory
     
     ! -- standard values
     real(wp), parameter     :: std_r        = 12e-9  !12E-9_wp  ! m
     real(wp), parameter     :: std_L        = 20E-6_wp  ! m
     real(wp), parameter     :: std_dU       = 80.0_wp   ! eV
     real(wp), parameter     :: std_alfa     = 0.2_wp
-    real(wp), parameter     :: std_tau      = 0.0_wp     
+    real(wp), parameter     :: std_tau      = 0.5_wp     
     real(wp), parameter     :: std_zeta     = 1E-3_wp   ! Pa*s
     real(wp), parameter     :: std_kT       = 0.026_wp  ! Termisk energi i eV
     real(wp), parameter     :: std_x0       = 0.0_wp
     real(wp), parameter     :: fraction_off = 3.0_wp / 4.0_wp
-    
-    ! -- standard values for the experiment
-    !real(wp), parameter     :: std_r         = 2E-6_wp    ! m
-    !real(wp), parameter     :: std_L         = 10E-6_wp   ! m
-    !real(wp), parameter     :: std_dU        = 1250.0_wp  ! eV
-    !real(wp), parameter     :: std_alfa      = 0.1_wp
-    !real(wp), parameter     :: std_tau       = 4.0_wp     
-    !real(wp), parameter     :: std_zeta      = 1E-3_wp    ! Pa*s
-    !real(wp), parameter     :: std_kT        = 0.026      ! Termisk energi i eV
-    !real(wp), parameter     :: std_x0        = 0.0_wp
-    !real, parameter         :: fraction_off  = 0.5_wp
+
+    ! -- files
+    character(len=1024)                 :: file_trajectory
+    character(len=1024)                 :: file_constants
+    character(len=1024)                 :: file_vd
+    character(len=*), parameter         :: file_fmt = '(A,I0,A,F0.1,A,F0.2,A,F0.4,A)'
     
     !// Initialise the random seed
     call init_random_seed    
@@ -70,51 +62,56 @@ program biased_brownian_motion
     gama = 6.0_wp*pi*zeta*r
     omega = dU/(gama*L**2)
 
-    !character(len=1024)     :: realisation
-    !write(realisation, fmt='(A,I0,A,F0.0,A,F0.4)') '_N', N, '_t', dt*nSteps/omega, '_dU', dU*6.24150934e18
-    !realisation = trim(realisation)
-    !write(*,*) 'Realisation: ', realisation
-
     !// Criterion for the time step
     call get_dt()
     write(*,*) 'Timestep [s]: ', dt/omega
     write(*, fmt='(A,F0.1)') 'Total time [s]: ', dt*nSteps/omega
     
     !// Write to file
-    call write_constants_to_file()
-    call create_empty_trajectory_file()
+    write(file_trajectory, fmt=file_fmt) 'trajectory_N', N, '_rnm', r/1.0e-9, '_tau', tau, '_dU', dU*6.24150934e18, '.txt'
+    write(file_constants,  fmt=file_fmt) 'constants_N', N, '_rnm', r/1.0e-9, '_tau', tau, '_dU', dU*6.24150934e18, '.txt'
+    write(file_vd, fmt=file_fmt) 'drift_velocity_N', N, '_rnm', r/1.0e-9, '_tau', tau, '_dU', dU*6.24150934e18, '.txt'
+    file_trajectory = trim(file_trajectory)
+    file_constants = trim(file_constants)
+    file_vd = trim(file_vd)
+    
+    call write_constants_to_file(file_constants)
+    call create_empty_trajectory_file(file_trajectory)
 
-
-    write(*,*) tau
-    !// Start the diffusion process for the N particles
-    do i = 0, (N-1)
-        write(*,*) i
-        !if (mod(i, 10) == 0) then
-            !write(*,fmt='(I0, A)', advance='no') i, ' '
-        !end if
-        
-        !// Set the starting position for the particles and then update x
-        x(0) = x0
-        do j = 1, nSteps - 1
-            x(j) = updateX(x(j-1), j*dt, dt)
+    !// Euler scheme
+    do while (tau <= 0.0)
+        write(*,*) tau
+        !// Start the diffusion process for the N particles
+        do i = 0, (N-1)
+            !if (mod(i, 10) == 0) then
+            !    write(*,fmt='(I0, A)', advance='no') i, ' '
+            !end if
+            
+            !// Set the starting position for the particles and then update x
+            x(0) = x0
+            do j = 1, nSteps - 1
+                x(j) = updateX(x(j-1), j*dt, dt)
+            end do
+            
+            call append_trajectory_to_file(file_trajectory)
+            !vd(i) = (x(nSteps-1) - x(0))*L / (dt*nSteps/omega)
         end do
-        
-        call append_trajectory_to_file(file_trajectory)
-        !vd(i) = (x(nSteps-1) - x(0))*L / (dt*nSteps/omega)
+        !call append_drift_velocity_to_file(file_vd)
+        tau = tau + 0.01_wp
     end do
-    !call append_drift_velocity_to_file()
-    !tau = tau + 0.01_wp
+    
     !call system ('python make_plot.py')
     
 contains    
 
 !
 ! Update the position of the particle using the Euler scheme
+! using the explicit expression for the force
 function updateX(x, t, dt) result(new_x)
     real(wp), intent(in)    :: x, t, dt
     real(wp)                :: new_x       
-    
-    new_x = x + F(x, t) * dt + sqrt(2*kT/dU*dt)*random_gauss()
+
+    new_x = x + F_e(x, t) * dt + sqrt(2*kT/dU*dt)*random_gauss()
     
 end function
 
@@ -143,8 +140,8 @@ end function
 
 
 !
-! Compute the force due to the potential U(x, t)
-function F(x, t) result(force)
+! Compute the force due to the potential U(x, t) (implicit)
+function F_i(x, t) result(force)
     real(wp)                    :: force
     real(wp), intent(in)        :: x, t
     real(wp)                    :: dx = 1.0e-3_wp
@@ -158,16 +155,38 @@ function F(x, t) result(force)
 end function
 
 !
+! Compute the force due to the potential U(x, t) (explicit)
+function F_e(x, t) result(force)
+    real(wp)                    :: force
+    real(wp), intent(in)        :: x, t
+    real(wp)                    :: x_temp
+    real(wp)                    :: dx = 1.0e-3_wp
+    
+    x_temp = x - floor(x)
+
+    if (U(x_temp,t) == 0.0_wp) then
+        force = 0.0_wp
+    else
+        if (x_temp >= 0.0_wp .and. x_temp < alfa) then
+            force = -1.0_wp/alfa
+        else if (x_temp >= alfa .and. x_temp < 1.0_wp) then
+            force = 1.0_wp/(1.0_wp-alfa)
+        end if
+    end if
+    
+end function
+
+!
 ! Implement the time criterion
 subroutine get_dt()
     dt = 0.1_wp
     
     if ( 1/alfa >= 1/(1-alfa) ) then
-        do while ( 1/alfa*dt + 4*sqrt(2*kT/dU*dt) > 0.5_wp*alfa )
+        do while ( 1/alfa*dt + 4*sqrt(2*kT/dU*dt) > 0.1_wp*alfa )
             dt = dt/2
         end do
     else 
-        do while ( 1/(1-alfa)*dt + 4*sqrt(2*kT/dU*dt) > 0.5_wp*alfa )
+        do while ( 1/(1-alfa)*dt + 4*sqrt(2*kT/dU*dt) > 0.1_wp*alfa )
             dt = dt/2
         end do
     end if
@@ -184,14 +203,12 @@ end subroutine
 
 !
 ! Append the drift velocitys to file (diffusion length per s) )
-subroutine append_drift_velocity_to_file()
-    real(wp)                :: avg_vd
-    real                    :: std_dev
-    logical                 :: exist
-    integer                 :: i
-    character(len=1024)     :: filename
-    write(filename, fmt='(A,I0,A, F0.0, A)') 'drift_velocity_N', N, '_t', dt*nSteps/omega, '.txt'
-    filename = trim(filename)
+subroutine append_drift_velocity_to_file(filename)
+    character(len=*), intent(in)    :: filename
+    real(wp)                        :: avg_vd
+    real                            :: std_dev
+    logical                         :: exist
+    integer                         :: i
 
     if (N >= 50) then
         inquire(file=filename, exist=exist)
@@ -217,9 +234,8 @@ subroutine append_drift_velocity_to_file()
     end if
 end subroutine
 
-subroutine create_empty_trajectory_file()
-    write(file_trajectory, fmt='(A,I0,A,F0.1,A,F0.2,A,F0.4,A)') 'trajectory_N', N, '_rnm', r/1.0e-9, '_tau', tau, '_dU', dU*6.24150934e18, '.txt'
-    file_trajectory = trim(file_trajectory)
+subroutine create_empty_trajectory_file(file_trajectory)
+    character(len=*), intent(in)        :: file_trajectory
     open(unit=13,file=file_trajectory, form="formatted", status="replace", action="write")
     close(unit=13) 
 end subroutine
@@ -228,23 +244,16 @@ end subroutine
 ! Writes the trajectory of the particle(s) to file
 subroutine append_trajectory_to_file(filename)
     character(len=*), intent(in)   :: filename
-
     open(unit=1, file=filename, status="old", position="append", action="write")
-    
     write(1,*) x(0:nSteps-1:measurement_period)
-    
     close(unit=1)
-    
 end subroutine
 
 
 !
 ! Writes constants to file
-subroutine write_constants_to_file()
-    character(len=1024)            :: filename
-
-    write(filename, fmt='(A,I0,A,F0.1,A, F0.2, A, F0.4, A)') 'constants_N', N, '_rnm', r/1.0e-9, '_tau', tau, '_dU', dU*6.24150934e18, '.txt'
-    filename = trim(filename)
+subroutine write_constants_to_file(filename)
+    character(len=*), intent(in)        :: filename
     
     open(unit=13,file=filename, form="formatted", status="replace", action="write", iostat = res)
     if (res /= 0) then
@@ -360,7 +369,6 @@ function random_gauss() result(rand_gauss)
         rand2 = rand2 * 2.0_wp - 1.0_wp
         w = rand1**2 + rand2**2
     end do
-
     rand_gauss = rand1 * SQRT( - 2.0_wp * LOG(w) / w)
 end function
 

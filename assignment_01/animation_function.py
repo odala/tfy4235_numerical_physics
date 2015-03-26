@@ -1,3 +1,7 @@
+"""
+This script makes it possible to animate a function which changes in time
+"""
+
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt

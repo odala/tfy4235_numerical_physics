@@ -1,6 +1,6 @@
 """
-This example shows how to use a path patch to draw a bunch of
-rectangles for an animated histogram
+This script makes it possible to animate a histogram which changes in time
+using a path patch to draw a bunch of rectangles for an animated histogram
 """
 import numpy as np
 
@@ -42,8 +42,6 @@ def read_constants(realisation):
 # ---------------------------------------------------------------------------
 
 fig, ax = plt.subplots()
-ax.set_xlabel('$\mathrm{Position\,[}\mu\mathrm{m]}$')
-ax.set_ylabel('$\mathrm{Number\,of\,particles}$')
 
 realisation = '_N1000_rnm12.0_tau.00_dU.0000'
 
@@ -67,6 +65,9 @@ nbins = xmax - xmin
 xmax = xmax*scale_length*1e6
 xmin = xmin*scale_length*1e6
 trajectory = trajectory*scale_length*1e6
+
+ax.set_xlabel('$\mathrm{Position\,[}\mu\mathrm{m]}$')
+ax.set_ylabel('$\mathrm{Number\,of\,particles}$')
 
 # histogram our data with numpy used to initialise corners
 data = trajectory[:,0]
@@ -104,6 +105,8 @@ ax.add_patch(patch)
 
 ax.set_xlim(left[0], right[-1])
 ax.set_ylim(bottom.min(), top.max())
+#ax.set_xlim(xmin, xmax)
+#ax.set_ylim(0, N)
 
 time_text = ax.text(0.02, 0.95, '', transform=ax.transAxes)
 
@@ -122,4 +125,4 @@ def animate(i):
 
 # frames is number of frames, interval is the time delay between frames i ms
 anim = animation.FuncAnimation(fig, animate, frames = nSteps, interval=250, repeat=False, blit=True, init_func=init)
-anim.save('density_animation'+realisation+'.mp4', fps=100, extra_args=['-vcodec', 'libx264'])
+anim.save('fig/density_animation'+realisation+'.mp4', fps=100, extra_args=['-vcodec', 'libx264'])
