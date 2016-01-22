@@ -81,6 +81,8 @@ READ(TRIM(stringToHoldArgument), FMT='I') day
 
 6 FUNCTIONS
 
+A function return something.
+
 function function_name(input_argument) result(output_argument)
 	implicit none
 	integer, intent(in)			:: input_argument	!// prevent us to overwrite the contents of the input argument
@@ -90,6 +92,8 @@ end function function_name
 
 
 7 SUBROUTINES
+
+A subroutine doesn't return something, but it can change the value of the input parameters.
 
 module m_add_1
 
