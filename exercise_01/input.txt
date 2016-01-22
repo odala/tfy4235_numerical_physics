@@ -1,0 +1,4 @@
+&PARAMETERS
+Nspecies = 4096,		! number of species
+Nsteps	 = 1000000,	    ! number of iterations
+/
