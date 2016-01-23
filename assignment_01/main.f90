@@ -3,7 +3,7 @@ Program main
     ! --- The modules we need to use in the program.
     Use common
     Use readinput
-    !Use functions
+    Use functions
 
     ! --- Define variables.
     Implicit None
@@ -16,16 +16,28 @@ Program main
     call cpu_time(start)
     
     ! --- Read input file.
+    !     Assign values to all common parameters as given 
+    !     in the input file.
     call read_input_file()
-
-    ! --- Now param%Nspecies and param%Nsteps have values
-    !     given in the input file.
 
     ! --- Write to command line a few words to check
     !     the parameters have read correctly.
     write(*,*) 'Check parameters.'
-    write(*,*) param%Nparticles, param%Nsteps, param%gama, param%omega
+    write(*,*) 'Nparticles: ', Nparticles
+    write(*,*) 'Nsteps: ', Nsteps
+    write(*,*) 'radius: ', radius
+    write(*,*) 'x0: ', x0
+    write(*,*) 'tau: ', tau
+    write(*,*) 'dU: ', dU
+    write(*,*) 'L: ', L
+    write(*,*) 'alpha: ', alpha
+    write(*,*) 'zeta: ', zeta
+    write(*,*) 'kT: ', kT
+    write(*,*) 'fraction_off: ', fraction_off
 
+    ! --- Write N numbers from the get_random_gauss()
+    !     to file.
+    !call check_random_gauss(1000000)
 
     ! --- Allocate space for the ecosystem array.
     !Allocate(ecosystem(param%Nspecies))

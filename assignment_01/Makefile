@@ -7,11 +7,13 @@ PROGRAM = biased_brownian
 # Source files
 SRCS =	common.f90	\
 	readinput.f90	\
+	functions.f90	\
 	main.f90
 
 # Object files (can make a easier version where alle srcs are made :.f90-.o)
 OBJS =	common.o	\
 	readinput.o	\
+	functions.o	\
 	main.o
 
 # 'make' builds all

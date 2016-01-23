@@ -8,23 +8,23 @@ Module readinput
     !     and assign values to parameters.
     Subroutine read_input_file()
         Implicit none
-        Integer             :: Nparticles, Nsteps
-        Real(wp)            :: radius, x0, tau, dU, L, alpha, zeta, kT, fraction_off
+        Integer             :: iNparticles, iNsteps
+        Real(wp)            :: iradius, ix0, itau, idU, iL, ialpha, izeta, ikT, ifraction_off
 
         ! --- List of names to look for in the input file.
         !     These are local variables.
         Namelist / parameters / & 
-        Nparticles,             &
-        Nsteps,                 &
-        radius,                 &
-        x0,                     &
-        tau,                    &
-        dU,                     &
-        L,                      &
-        alpha,                   &
-        zeta,                   &
-        kT,                     &
-        fraction_off            
+        iNparticles,            &
+        iNsteps,                &
+        iradius,                &
+        ix0,                    &
+        itau,                   &
+        idU,                    &
+        iL,                     &
+        ialpha,                 &
+        izeta,                  &
+        ikT,                    &
+        ifraction_off            
 
         ! --- Read the input file and assign corresponding values
         !     to named variables.
@@ -33,21 +33,21 @@ Module readinput
         close(1)
 
         ! --- Assign the values read to the parameters (global variables).
-        param%Nparticles = Nparticles
-        param%Nsteps   = Nsteps
-        param%radius = radius
-        param%x0 = x0
-        param%tau = tau
-        param%dU = dU
-        param%L = L
-        param%alpha = alpha
-        param%zeta = zeta
-        param%kT = kT
-        param%fraction_off = fraction_off
+        Nparticles      = iNparticles
+        Nsteps          = iNsteps
+        radius          = iradius
+        x0              = ix0
+        tau             = itau
+        dU              = idU
+        L               = iL
+        alpha           = ialpha
+        zeta            = izeta
+        kT              = ikT
+        fraction_off    = ifraction_off
         
         ! --- Calculate values from these parameters
-        param%gama = 6.0_wp*pi*zeta*radius
-        param%omega = dU/(param%gama*L**2)
+        gama    = 6.0_wp*pi*zeta*radius
+        omega   = dU/(gama*L**2)
 
     end subroutine read_input_file
 

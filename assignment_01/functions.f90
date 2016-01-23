@@ -79,6 +79,17 @@ Module functions
         end if
 
     end Function calculate_force
+
+    ! --- Function that returns the updated position (using the Euler scheme).
+    !     Input: position, time, timestep
+    !     Output: updated position
+    function update_position(x, t, dt) result(new_x)
+        real(wp), intent(in)    :: x, t, dt
+        real(wp)                :: new_x       
+
+        new_x = x + calculate_force(x, t) * dt + sqrt(2*kT/dU*dt)*get_random_gauss()
+
+    end function
     
     ! --- Function that returns a Gaussian distributed random number
     !     with mean 0 and unit standard deviation.
@@ -108,8 +119,9 @@ Module functions
     !     are Gaussian distributed with mean 0 and unit standard deviation.
     !     Input: none
     !     Output: none
-    Subroutine check_random_gauss()
-        Integer     :: i, res
+    Subroutine check_random_gauss(N)
+        Integer, Intent(In)     :: N
+        Integer                 :: i, res
         
         ! --- Open file.
         open(unit=1,file="check_gaussian.txt", form="formatted", status="replace", action="write", iostat = res)
@@ -126,7 +138,7 @@ Module functions
         
         ! --- Draw N numbers with the get_random_gauss() function and write 
         !     them to file.
-        do i = 0, 10000
+        do i = 0, N
             write(1,*) get_random_gauss()
         end do
         
