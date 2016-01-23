@@ -3,6 +3,7 @@
 ### Specific in this project ###
 assignment_01/*.txt
 assignment_01/*.png
+assignment_01/data/*.txt
 
 ### Fortran ###
 # Compiled Object files
