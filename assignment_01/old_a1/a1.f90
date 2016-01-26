@@ -61,9 +61,11 @@ program biased_brownian_motion
     call input_particle(-1)        ! place inside loop to get individual r/x0
     gama = 6.0_wp*pi*zeta*r
     omega = dU/(gama*L**2)
+    write(*,*) dU, gama, L
 
     !// Criterion for the time step
     call get_dt()
+    write(*,*) dt, omega
     write(*,*) 'Timestep [s]: ', dt/omega
     write(*, fmt='(A,F0.1)') 'Total time [s]: ', dt*nSteps/omega
     
@@ -104,7 +106,7 @@ program biased_brownian_motion
     
 contains    
 
-!
+! ADDED
 ! Update the position of the particle using the Euler scheme
 ! using the explicit expression for the force
 function updateX(x, t, dt) result(new_x)
@@ -240,7 +242,7 @@ subroutine create_empty_trajectory_file(file_trajectory)
     close(unit=13) 
 end subroutine
     
-!
+! ADDED
 ! Writes the trajectory of the particle(s) to file
 subroutine append_trajectory_to_file(filename)
     character(len=*), intent(in)   :: filename

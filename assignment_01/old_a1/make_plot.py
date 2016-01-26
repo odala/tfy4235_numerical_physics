@@ -13,6 +13,7 @@ from matplotlib import animation
 import scipy
 from scipy.integrate import quad
 
+# ADDED
 # ---------------------------------------------------------------------------
 # Read the constants from the file "constants.txt"
 # ---------------------------------------------------------------------------
@@ -39,7 +40,7 @@ def read_constants(realisation):
     fin.close()
     return (N, nSteps, delta_t, alfa, tau, zeta, r, dU, L, kT)
 
-
+# ADDED
 # ---------------------------------------------------------------------------
 # The potential
 # ---------------------------------------------------------------------------
@@ -51,7 +52,7 @@ def potential(x, t):
         U = (1.0-x)/(1.0-t.alfa)
     return U
 
-
+# ADDED
 # ---------------------------------------------------------------------------
 # Plot the trajectory of the particle(s) and the potential they are in
 # ---------------------------------------------------------------------------
@@ -223,7 +224,7 @@ def define_color_cycle(fig_name):
     ax = fig_name.add_subplot(111)
     ax.set_color_cycle([cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
 
-
+# ADDED
 # ---------------------------------------------------------------------------
 # Makes a histogram of where in the potential the particle have been and
 # compares it to the true Boltzmann distribution from statistical mechanics
@@ -251,7 +252,7 @@ def compare_to_boltzmann(data,  dU, kT):
     # Saving figure
     plt.savefig('fig/boltzmann_distribution_' + str(dU/kT) + '.png');
     
-
+# ADDED
 # ---------------------------------------------------------------------------
 # Standard Gaussian Random Number Generator
 # Checks if the gaussian Box-Muller algorithm really are a normal distribution
@@ -269,7 +270,7 @@ def plot_gaussian():
     # Saving figure
     plt.savefig('fig/normal_distribution' + '.png');
 
-
+# ADDED
 # ---------------------------------------------------------------------------
 # Plot with standard deviation
 # returns the maximum and minimum value of y with corresponding x
@@ -296,6 +297,11 @@ def plot_w_std_dev(x, y, std_dev, xlabel, ylabel, savename, errorbar='errorbar')
 
     return xy_max, y_max, xy_min, y_min
 
+# ADDED
+# ---------------------------------------------------------------------------
+# CLASS Trajectory.
+# Class that contain all the simulation parameters and trajectories.
+# --------------------------------------------------------------------------- 
 class Trajectory:
     def __init__(self, realisation):
         self.realisation = realisation

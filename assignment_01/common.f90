@@ -10,8 +10,8 @@ Module common
     Real(wp), Parameter     :: pi = 4.0_wp*atan(1.0_wp)
 
     ! --- Define global parameters
-    Integer :: Nparticles, Nsteps
-    Real    :: radius, x0, tau, dU, L, alpha, zeta, kT, fraction_off, gama, omega
+    Integer     :: Nparticles, Nsteps, dSteps
+    Real(wp)    :: timestep, radius, x0, tau, dU, L, alpha, zeta, kT, fraction_off, gama, omega
         
     !Type :: Parameter_Container
     ! -----------------------------------------------------------
