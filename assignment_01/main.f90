@@ -11,13 +11,12 @@ Program main
     Real(wp)                :: start, finish
     Real(wp), allocatable   :: positions(:)
     Real(wp), allocatable   :: drift_velocities(:)
-    real(wp)                :: avg_vd
-    real(wp)                :: std_dev
-    logical                 :: exist
-    character(len=*), parameter :: trajectory_file = 'output.txt'
-    character(len=*), parameter :: drift_velocity_file = 'drift_velocities.txt'
-    character(len=*), parameter :: format_0 = '(A15, I14)'
-    character(len=*), parameter :: format_1 = '(A15, E14.4)'
+    Real(wp)                :: avg_vd
+    Real(wp)                :: std_dev
+    Character(len=*), parameter :: trajectory_file = 'output.txt'
+    Character(len=*), parameter :: drift_velocity_file = 'drift_velocities.txt'
+    Character(len=*), parameter :: format_0 = '(A15, I14)'
+    Character(len=*), parameter :: format_1 = '(A15, E14.4)'
     
     
     ! --- Get initial time and say hello.
@@ -58,7 +57,7 @@ Program main
     else 
         write(*,*) 'Time criterion is not fulfilled.'
         write(*,*) 'This program is going to exit.'
-        call exit(0)
+        !call exit(0)
     end if
 
     ! --- Write N numbers from the
@@ -79,54 +78,44 @@ Program main
     ! --- Make the particles evolve during Nsteps.
     !     Using the euler scheme on the N particles.
     !do i = 1, Nparticles
+    !    write(*,*) i
     !    call euler_scheme(positions, timestep)
     !    write(1,*) positions(1:Nsteps:dSteps)
     !end do
-
-    ! --- Open output file named 'drift_velocities.txt'.
-    !     It will contain the drift velocities of 
-    !     the particles for different flashing periods.
-    inquire(file=drift_velocity_file, exist=exist)
-    if (exist) then
-        open(12, file=drift_velocity_file, status="old", position="append", action="write")
-    else
-        open(12, file=drift_velocity_file, status="new", action="write")
-    end if
+    
+    ! --- Close output file.
+    close(unit=1)
 
     ! --- Repeat the simulation for different values of tau.
-    do while (tau <= 2.0_wp)
+    do while (tau <= 4._wp)
         
         write(*,*) 'tau = ', tau, ': '
 
-        ! --- Calculate drift velocity for particle i.
+        ! --- Calculate the individual drift velocites.
         do i = 1, Nparticles
-            if (mod(i, 10) == 0) then
-                write(*,fmt='(I0, A)', advance='no') i, ' '
-            end if
             call euler_scheme(positions, timestep)
             drift_velocities(i) = (positions(Nsteps) - positions(1))/(timestep*Nsteps)
         end do
-        write(*,*)
         
-        ! --- Calculate average drift velocity for given flashing period.
+        ! --- Calculate average drift velocity.
         avg_vd = sum(drift_velocities)/Nparticles
 
-        ! --- Calculate standard deviation for given flashing period.
+        ! --- Calculate standard deviation.
         std_dev = 0.0_wp
         do i = 1, Nparticles
             std_dev = std_dev + (avg_vd - drift_velocities(i))**2
         end do
         std_dev = sqrt(std_dev/(Nparticles-1))
+        
+        ! --- Write to the file 'drift_velocities.txt'.
+        !     It will contain the average drift velocities 
+        !     with standard deviation for different flashing periods.
+        call append_vector_to_file([tau, avg_vd, std_dev], 'drift_velocities.txt')
 
-        write(12, *) tau, avg_vd, std_dev
-
-        tau = tau + 0.1_wp
+        tau = tau + 0.01_wp
     end do
 
-    ! --- Close output file.
-    close(unit=1)
-
-    ! --- Deallocate array.
+    ! --- Deallocate arrays.
     Deallocate(positions, drift_velocities)
 
     ! --- Get final time and say goodbye.

@@ -48,19 +48,20 @@ class Particles:
         self.L           = parameters[7]
         self.alpha       = parameters[8]
         self.zeta        = parameters[9]
-        self.kT          = parameters[10]
+        self.kT          = parameters[10]*1.60217657E-19
         self.fraction_off= parameters[11]
         self.dSteps      = parameters[12]
 
         # --- Calculate additional parameters.
         self.gamma = 6.0*np.pi*self.zeta*self.radius
-        #self.D = self.kT/self.gamma
+        self.D = self.kT/self.gamma
         self.omega = self.dU/(self.gamma*self.L**2)
         self.total_time = self.Nsteps*self.timestep
 
         # --- Read in trajectory and convert to real length.
         self.trajectory = self.L*np.loadtxt(trajectory_file) 
         self.max, self.min = self.trajectory.max(), self.trajectory.min()
+        self.Nmeasurements = len(self.trajectory[0][:])
 
     def potential(self, x):
         x = x - np.floor(x/self.L)*self.L
@@ -88,9 +89,9 @@ def plot_trajectory(species):
     minimum_total_time = min(species[i].total_time for i in range(Nspecies))
 
     # --- Plot trajectory.
-    fig = plt.figure(1)
+    trajectory = plt.figure()
     colors = cm.nipy_spectral(np.linspace(0.1, 0.9, Nspecies))      #colors = ['k', 'b', 'r']
-    colors = ['k', 'b', 'r']
+    colors = ['b', 'g', 'r', 'y']
     for j in range(Nspecies):
         s = species[j]
         t = s.timestep*np.linspace(0, (s.Nsteps - 1), s.Nsteps/s.dSteps)
@@ -110,9 +111,9 @@ def plot_trajectory(species):
     plt.contourf(X, T, U, 50, alpha=.75, cmap='binary', vmin=abs(U).min(), vmax=abs(U).max() + 0.5*(abs(U).max() - abs(U).min()))
 
     # --- Layout of plot.
-    plt.xlabel('Position [$\mu$m]', fontsize=15)
-    plt.ylabel('Time [s]', fontsize=15) 
-    cbar = plt.colorbar(); cbar.set_label(r'Potential / $\Delta U$', fontsize = 15)
+    plt.xlabel('Position [$\mu$m]', fontsize=20)
+    plt.ylabel('Time [s]', fontsize=20) 
+    cbar = plt.colorbar(); cbar.set_label(r'Potential / $\Delta U$', fontsize = 20)
     plt.axis([minimum_x*1.0e6, maximum_x*1.0e6, 0.0, 1.0*minimum_total_time])
     plt.legend(loc='lower right')
     
@@ -122,17 +123,17 @@ def plot_trajectory(species):
 
 # ---------------------------------------------------------------------------
 # Plots the motion of the ensemble of particles and how the particle density
-# behaves in time, 3D-plot, TAKES IN ARRAY OF OBJECTS!!! 
+# behaves in time, 3D-plot
 # ---------------------------------------------------------------------------
-def plot_objects_in_time(species):
+def plot_ensembles_in_time(species):
 
     # --- Calculate limits for time and position.
     minimum, maximum = 0, 0
     total_time = species[0].total_time
     for i in range(0, len(species)):
-        minimum     = species[i].min if species[i].min < minimum else minimum
-        maximum     = species[i].max if species[i].max > maximum else maximum
-        total_time  = species[i].total_time if species[i].total_time < total_time else total_time
+        minimum     = min(species[i].min, minimum)
+        maximum     = max(species[i].max, maximum)
+        total_time  = min(species[i].total_time, total_time)
     
     # --- Initialise start, stop and Nbins so that 
     #     each bin is one potential well.
@@ -143,31 +144,61 @@ def plot_objects_in_time(species):
     stop  = stop*species[0].L
 
     # --- Initialise time array.
-    Nts = len(species.trajectory[:][0])
-    ts = np.linspace(0, total_time, Nts)
-     
+    Nts = 4
+    ts = np.linspace(5, species[0].Nsteps/species[0].dSteps - 1, Nts)
+    ts = np.floor(ts)
+
     # --- Plot histograms (3-Dimensional).
     ensemble_motion = plt.figure()
     ax = ensemble_motion.gca(projection='3d')
-    colors = ['b', 'g', 'y', 'r'] 
+    colors = ['b', 'g', 'r', 'y'] 
     hist_max = 0.0
-    for t in ts:
-        for i in range(0, len(species)):
-            hist, x_bins = np.histogram(species[i].trajectory[:][t], bins=Nbins, range=(start, stop), normed=False)
-            hist_max = max(max(hist), hist_max)
-            x_center = (x_bins[:-1] + x_bins[1:]) / 2 
-            ax.bar(1e6*x_center, hist, align='center', zs=t, zdir='y', alpha=0.4, width=(x_center[1]-x_center[0]), color=colors[i])
+    verts = []
     
+    # --- Iterate through the different ensembles.
+    for j in range(len(species)):
+
+        # --- If the potential is off:
+        #     Calculate the average drift velocthity.
+        if (species[j].fraction_off == 1.0):
+            avg_vd = 0.0
+            for p in range(0, species[j].Nparticles):
+                avg_vd = avg_vd + (species[j].trajectory[p][-1] - species[j].trajectory[p][0])/species[j].total_time/species[j].Nparticles  
+
+        # --- Plot histograms of the ensemble in time.
+        for i in ts:
+            t = i*species[j].timestep*species[j].dSteps
+            hist, x_bins = np.histogram(species[j].trajectory[:,i], bins=Nbins, range=(start, stop), normed=False)
+            hist_max = max(max(hist), hist_max)
+            x_center = (x_bins[:-1] + x_bins[1:]) / 2
+            ax.bar(1e6*x_center, hist, align='center', zs=t, zdir='y', alpha=0.4, width = 1e6*(x_center[1] - x_center[0]), color=colors[j])
+
+            # --- If the potential is off:
+            #     Plot the theoretical number of particles as a function of t and x.
+            if (species[j].fraction_off == 1.0):
+                x_0 = x_center - avg_vd*t
+                if (t==0.0):
+                    n = np.zeros(len(x_center))
+                    n[np.where(np.abs(x_center)==np.abs(x_center).argmin())] = species[j].Nparticles
+                else:
+                    n = species[j].Nparticles/np.sqrt(4*np.pi*species[j].D*t)*np.exp(-np.power(x_0, 2)/(4*species[j].D*t))*(x_0[1] - x_0[0])
+                verts.append(zip( 1e6*x_center, n))
+     
+    # Convert verts to poly
+    cc = lambda c: colorConverter.to_rgba(c, alpha=0.6)
+    poly = PolyCollection(verts, facecolors=cc('r'), alpha=0.7)
+    ax.add_collection3d(poly, zs=ts*species[0].timestep*species[0].dSteps, zdir = 'y')
+
     # --- Plot layout.
     ax.set_xlabel('Position [$\mu$m]')
     ax.set_xlim3d(minimum*1e6, maximum*1e6)
     ax.set_ylabel('Time [s]')
-    ax.set_ylim3d(min(ts), max(ts))
+    ax.set_ylim3d(min(ts)*species[0].timestep*species[0].dSteps, max(ts)*species[0].timestep*species[0].dSteps)
     ax.set_zlabel('Number of particles')
-    ax.set_zlim3d(0.0, hist_max)
-    
+    ax.set_zlim3d(0.0, hist_max/2)
+
     # Saving figure
-    plt.savefig('fig/objects_in_time.png');
+    plt.savefig('fig/ensemble_motion.png');
 
 # ---------------------------------------------------------------------------
 # Makes a histogram of where in the potential the particle have been and
@@ -192,8 +223,8 @@ def compare_to_boltzmann(data, dU, kT):
     plt.plot(U, b_dist)
     print 'The integral of the Boltzmann distribution from 0.0 to 0.5 = ', scipy.integrate.quad(boltzmann_dist, 0.0, 0.5)
     
-    plt.xlabel(r'Energy $U$ [eV]', fontsize=15)
-    plt.ylabel(r'$P(U)$', fontsize=15)
+    plt.xlabel(r'Energy $U$ [eV]', fontsize=20)
+    plt.ylabel(r'$P(U)$', fontsize=20)
     plt.axis([minimum, maximum, 0, 1.1*max(b_dist)])
     print 'Generated a plot of the Boltzmann Distribution for dU / k_BT = ', dU/kT
 
@@ -227,8 +258,8 @@ def plot_w_std_dev(x, y, std_dev, xlabel, ylabel, savename, errorbar='errorbar')
     
     # --- Layout of plot.
     plt.axis([min(x), max(x), 1.05*(min(y)-max(std_dev)), 1.05*(max(y)+max(std_dev))])
-    plt.xlabel(xlabel, fontsize=15)
-    plt.ylabel(ylabel, fontsize=15)
+    plt.xlabel(xlabel, fontsize=20)
+    plt.ylabel(ylabel, fontsize=20)
     
     # --- Saving figure.
     plt.savefig(savename)
@@ -258,7 +289,8 @@ b_run = Particles('input_boltzmann.txt', 'output_boltzmann.txt')
 compare_to_boltzmann(b_run.potential(b_run.trajectory[:]), b_run.dU, b_run.kT)
 '''
 
-# TASK 9
+# TASK 9.
+# --- Drift velocity with respect to flashing period.
 v_run = Particles('input_vd.txt', 'output_x1e1.txt')
 data = np.loadtxt('drift_velocities.txt')
 tau = data[:, 0]
@@ -266,3 +298,15 @@ avg_vd = data[:, 1]*v_run.L*v_run.omega
 std_dev = data[:, 2]*v_run.L*v_run.omega
 fmax_x, fmax_y, fmin_x, fmin_y = plot_w_std_dev(tau, 1e6*avg_vd, 1e6*std_dev, r'Period of flash, $\tau$ [s]', r'Average drift velocity, $\left< v_d \right>$ [$\mathrm{\mu}$m/s]', 'fig/drift_velocities.png', errorbar = 'filled')
 print 'The tau which results in the maximum drift velocity is tau = ', fmax_x
+
+# TASK 12.
+'''
+#ensemble1 = Particles('input_ensemble_check.txt', 'output_ensemble_check.txt')
+#ensemble2 = Particles('input_ensemble_check2.txt', 'output_ensemble_check2.txt')
+#ensemble3 = Particles('input.txt', 'output.txt')
+ensemble_rad12 = Particles('input_ensemble_rad12.txt', 'output_ensemble_rad12.txt')
+ensemble_rad36 = Particles('input_ensemble_rad36.txt', 'output_ensemble_rad36.txt')
+#run3 = Particles('input_x1e-1.txt', 'output_x1e-1.txt')
+#plot_ensembles_in_time([ensemble_rad12, ensemble_rad36])
+plot_trajectory([ensemble_rad12, ensemble_rad36])
+'''

@@ -21,7 +21,7 @@ Module functions
         t_temp = t - floor(t/(tau*omega))*tau*omega
         
         ! --- Calculate what the potential is at that location and time
-        if (tau /= 0.0_wp .and. t_temp >= 0.0_wp .and. t_temp < fraction_off*tau*omega) then
+        if (dU == 0.0_wp .or. (tau /= 0.0_wp .and. t_temp >= 0.0_wp .and. t_temp < fraction_off*tau*omega)) then
             potential = 0.0_wp
         else
             if (x_temp >= 0.0_wp .and. x_temp < alpha) then
@@ -68,7 +68,7 @@ Module functions
         t_temp = t - floor(t/(tau*omega))*tau*omega
         
         ! --- Calculate what the force is at that location and time
-        if (tau /= 0.0_wp .and. t_temp >= 0.0_wp .and. t_temp < fraction_off*tau*omega) then
+        if (dU == 0.0_wp .or. (tau /= 0.0_wp .and. t_temp >= 0.0_wp .and. t_temp < fraction_off*tau*omega)) then
             force = 0.0_wp
         else
             if (x_temp >= 0.0_wp .and. x_temp < alpha) then
@@ -84,6 +84,7 @@ Module functions
     !     Input : position, time, timestep
     !     Output: updated position
     Function update_position(x, t, dt) result(new_x)
+        Implicit None
         Real(wp), Intent(in)    :: x, t, dt
         Real(wp)                :: new_x       
 
@@ -95,6 +96,7 @@ Module functions
     !     Input : none
     !     Output: none but position array is updated
     Subroutine euler_scheme(positions, dt)
+        Implicit None
         Real(wp), Intent(in)    :: dt
         Real(wp)                :: positions(:)
         Integer                 :: i, j
@@ -109,7 +111,11 @@ Module functions
 
     end Subroutine euler_scheme
 
+    ! --- Function that checks the time criterion.
+    !     Input : none
+    !     Output: logical true or false
     Function check_time_criterion() result(is_time_criterion)
+        Implicit None
         Logical     :: is_time_criterion
         Real(wp)    :: lhs, f1, f2
 
@@ -118,7 +124,7 @@ Module functions
 
         lhs = (max(f1, f2)*timestep + 4.0_wp*sqrt(2.0_wp*kT/dU)*timestep)/alpha
 
-        write(*,*) 'lhs ', lhs*100, ' %.'
+        write(*,*) 'Time criterion: ', lhs*100, ' % << 100 %.'
 
         if (lhs <= 0.1_wp) then
             is_time_criterion = .True.
@@ -127,6 +133,36 @@ Module functions
         end if
 
     end Function check_time_criterion
+
+    ! -------------------------------------------------
+    ! --- STUFF THAT HAS TO DO WITH WRITING TO FILE --- 
+    ! -------------------------------------------------
+    
+    ! --- Subroutine that append a vector to a file.
+    !     If the file does not exist it will be made.
+    !     Input : vector and filename
+    !     Output: none but the file is updated
+    Subroutine append_vector_to_file(vector, filename)
+        Implicit None
+        Real(wp), Intent(in)            :: vector(:)
+        Character(len=*), Intent(in)    :: filename
+        Logical                         :: exist   
+
+        ! --- Open output file named filename.
+        inquire(file=filename, exist=exist)
+        if (exist) then
+            open(12, file=filename, status="old", position="append", action="write")
+        else
+            open(12, file=filename, status="new", action="write")
+        end if
+        
+        ! --- Append vector to file.
+        write(12,*) vector
+        
+        ! --- Close output file.
+        close(unit=12)
+
+    end Subroutine append_vector_to_file   
 
     ! ------------------------------------------------
     ! --- STUFF THAT HAS TO DO WITH RANDOM NUMBERS --- 
@@ -137,6 +173,7 @@ Module functions
     !     Input : none
     !     Output: a Gaussian random number
     Function get_random_gauss() result(random_gauss)
+        Implicit None
         Real(wp)            :: random_gauss
         Real(wp)            :: rand1, rand2, w
         Integer             :: i
@@ -145,14 +182,19 @@ Module functions
         !     Box-Müller algorithm.
         w = 0.0_wp
         do while(w == 0.0_wp .OR. w >= 1.0_wp)
-            ! --- Assign a random number from the uniform distribution
-            !     using random_number() to rand1 and rand2.
+
+            ! --- Generate two random numbers from the uniform 
+            !     distribution U(0,1).
             call random_number(rand1)
             call random_number(rand2)
+            
             rand1 = rand1 * 2.0_wp - 1.0_wp
             rand2 = rand2 * 2.0_wp - 1.0_wp
             w = rand1**2 + rand2**2
         end do
+
+        ! --- Calculate an uncorrelated Gaussian (or normal) 
+        !     deviate of mean 0 and standard deviation 1 N(0,1).
         random_gauss = rand1 * Sqrt( - 2.0_wp * Log(w) / w)
     end Function get_random_gauss
     
@@ -161,6 +203,7 @@ Module functions
     !     Input : none
     !     Output: none
     Subroutine check_random_gauss(N)
+        Implicit None
         Integer, Intent(In)     :: N
         Integer                 :: i, res
         
@@ -193,20 +236,22 @@ Module functions
     !     Input : none
     !     Output: none but the random seed is updated
     Subroutine initialize_random_seed()
+        Implicit None
         integer                             :: i, n, clock
         integer, dimension(:), allocatable  :: seed
             
-        ! --- (?)
+        ! --- Allocate seed array.
         call random_seed(size = n)
-        allocate(seed(n))
+        Allocate(seed(n))
         
-        ! --- (?)
+        ! --- Set each element of the seed array 
+        !     to a function of the current time.
         call system_clock(count=clock)
         seed = clock + 37 * (/ (i - 1, i = 1, n) /)
         call random_seed(put = seed)
         
-        ! --- (?)
-        deallocate(seed)
+        ! --- Dealloacate seed array.
+        Deallocate(seed)
 
     end Subroutine
 
