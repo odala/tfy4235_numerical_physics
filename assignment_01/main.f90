@@ -13,6 +13,7 @@ Program main
     Real(wp), allocatable   :: drift_velocities(:)
     Real(wp)                :: avg_vd
     Real(wp)                :: std_dev
+    Character(len=*), parameter :: input_file = 'input.txt'
     Character(len=*), parameter :: trajectory_file = 'output.txt'
     Character(len=*), parameter :: drift_velocity_file = 'drift_velocities.txt'
     Character(len=*), parameter :: format_0 = '(A15, I14)'
@@ -27,7 +28,7 @@ Program main
     ! --- Read input file.
     !     Assign values to all common parameters as given 
     !     in the input file.
-    call read_input_file()
+    call read_input_file(input_file)
 
     ! --- Write to command line a few words to check
     !     the parameters have read correctly.
@@ -49,7 +50,6 @@ Program main
     
     ! --- Introduce reduced units.
     timestep    = timestep*omega
-    x0          = x0/L
 
     ! --- Check time criterion.
     if (check_time_criterion()) then
@@ -77,28 +77,30 @@ Program main
     
     ! --- Make the particles evolve during Nsteps.
     !     Using the euler scheme on the N particles.
-    !do i = 1, Nparticles
-    !    write(*,*) i
-    !    call euler_scheme(positions, timestep)
-    !    write(1,*) positions(1:Nsteps:dSteps)
-    !end do
-    
+    do i = 1, Nparticles
+        write(*,*) i
+        call euler_scheme(positions, timestep)
+        write(1,*) positions(1:Nsteps:dSteps)
+    end do
+
     ! --- Close output file.
     close(unit=1)
 
     ! --- Repeat the simulation for different values of tau.
-    do while (tau <= 4._wp)
-        
+    do while (tau <= -1.0_wp)
         write(*,*) 'tau = ', tau, ': '
 
-        ! --- Calculate the individual drift velocites.
+        ! --- Calculate the individual drift velocites in real units.
         do i = 1, Nparticles
             call euler_scheme(positions, timestep)
-            drift_velocities(i) = (positions(Nsteps) - positions(1))/(timestep*Nsteps)
+            drift_velocities(i) = (positions(Nsteps) - positions(1))*L/(Nsteps*timestep/omega)
         end do
+
+        write(*,*) 'Total time: ', Nsteps*timestep/omega
         
         ! --- Calculate average drift velocity.
         avg_vd = sum(drift_velocities)/Nparticles
+        write(*,*) 'Average v: ', avg_vd
 
         ! --- Calculate standard deviation.
         std_dev = 0.0_wp
@@ -110,7 +112,7 @@ Program main
         ! --- Write to the file 'drift_velocities.txt'.
         !     It will contain the average drift velocities 
         !     with standard deviation for different flashing periods.
-        call append_vector_to_file([tau, avg_vd, std_dev], 'drift_velocities.txt')
+        call append_vector_to_file([tau, avg_vd, std_dev], drift_velocity_file)
 
         tau = tau + 0.01_wp
     end do

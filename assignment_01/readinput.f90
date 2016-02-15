@@ -6,10 +6,11 @@ Module readinput
 
     ! --- Subroutine that reads an input file
     !     and assign values to parameters.
-    Subroutine read_input_file()
+    Subroutine read_input_file(filename)
         Implicit none
-        Integer             :: iNparticles, iNsteps, idSteps
-        Real(wp)            :: itimestep, iradius, ix0, itau, idU, iL, ialpha, izeta, ikT, ifraction_off
+        Character(len=*), Intent(in) :: filename
+        Integer                      :: iNparticles, iNsteps, idSteps
+        Real(wp)                     :: itimestep, iradius, ix0, itau, idU, iL, ialpha, izeta, ikT, ifraction_off
 
         ! --- List of names to look for in the input file.
         !     These are local variables.
@@ -30,7 +31,7 @@ Module readinput
 
         ! --- Read the input file and assign corresponding values
         !     to named variables.
-        open(unit=1, file='input.txt', status='old')
+        open(unit=1, file=filename, status='old')
         read(1,nml=parameters)
         close(1)
 

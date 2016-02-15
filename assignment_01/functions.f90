@@ -62,13 +62,14 @@ Module functions
         Real(wp), Intent(in)        :: x, t
         Real(wp)                    :: x_temp, t_temp, dx = 1.0e-3_wp
     
-        ! --- Relocate to the corresponing position in the interval
-        !     [0, 1] and time in the interval [0, tau*omega]
+        ! --- Relocate to the position in the corresponding interval [0, 1]
         x_temp = x - floor(x)
-        t_temp = t - floor(t/(tau*omega))*tau*omega
+
+        ! --- Relocate and scale the time to the corresponding interval [0,1]
+        t_temp = t/(tau*omega) - floor(t/(tau*omega))
         
         ! --- Calculate what the force is at that location and time
-        if (dU == 0.0_wp .or. (tau /= 0.0_wp .and. t_temp >= 0.0_wp .and. t_temp < fraction_off*tau*omega)) then
+        if (dU == 0.0_wp .or. (tau /= 0.0_wp .and. t_temp >= 0.0_wp .and. t_temp < fraction_off)) then
             force = 0.0_wp
         else
             if (x_temp >= 0.0_wp .and. x_temp < alpha) then
@@ -107,6 +108,7 @@ Module functions
             ! --- Iterate through all the time steps.
             do j = 2, nSteps
                 positions(j) = update_position(positions(j-1), j*dt, dt)
+                !write(*,*) 't: ', j*dt/omega, 'F: ', calculate_force(positions(j-1), j*dt), 'x: ', positions(j)*L*1e6
             end do
 
     end Subroutine euler_scheme

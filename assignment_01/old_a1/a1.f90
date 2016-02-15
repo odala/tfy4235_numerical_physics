@@ -18,8 +18,8 @@ program biased_brownian_motion
     integer, parameter :: wp = dp
     
     ! ######## Variables #########    
-    integer, parameter                  :: N = 10
-    integer, parameter                  :: nSteps =  3000000!1100000
+    integer, parameter                  :: N = 100
+    integer, parameter                  :: nSteps =  1100000
     real(wp)                            :: r                    !// m
     real(wp)                            :: x0
     real(wp)                            :: kT                   !// eV
@@ -37,7 +37,7 @@ program biased_brownian_motion
     real(wp), parameter                 :: pi = 4.0_wp* atan(1.0_wp)
     
     ! -- standard values
-    real(wp), parameter     :: std_r        = 12e-9  !12E-9_wp  ! m
+    real(wp), parameter     :: std_r        = 12e-9_wp  ! m
     real(wp), parameter     :: std_L        = 20E-6_wp  ! m
     real(wp), parameter     :: std_dU       = 80.0_wp   ! eV
     real(wp), parameter     :: std_alfa     = 0.2_wp
@@ -65,7 +65,6 @@ program biased_brownian_motion
 
     !// Criterion for the time step
     call get_dt()
-    write(*,*) dt, omega
     write(*,*) 'Timestep [s]: ', dt/omega
     write(*, fmt='(A,F0.1)') 'Total time [s]: ', dt*nSteps/omega
     
@@ -81,12 +80,12 @@ program biased_brownian_motion
     call create_empty_trajectory_file(file_trajectory)
 
     !// Euler scheme
-    do while (tau <= 0.0)
+    do while (tau <= 1.0_wp)
         write(*,*) tau
         !// Start the diffusion process for the N particles
         do i = 0, (N-1)
             !if (mod(i, 10) == 0) then
-            !    write(*,fmt='(I0, A)', advance='no') i, ' '
+                !write(*,fmt='(I0, A)', advance='no') i, ' '
             !end if
             
             !// Set the starting position for the particles and then update x
@@ -95,10 +94,10 @@ program biased_brownian_motion
                 x(j) = updateX(x(j-1), j*dt, dt)
             end do
             
-            call append_trajectory_to_file(file_trajectory)
-            !vd(i) = (x(nSteps-1) - x(0))*L / (dt*nSteps/omega)
+            !call append_trajectory_to_file(file_trajectory)
+            vd(i) = (x(nSteps-1) - x(0))*L / (dt*nSteps/omega)
         end do
-        !call append_drift_velocity_to_file(file_vd)
+        call append_drift_velocity_to_file(file_vd)
         tau = tau + 0.01_wp
     end do
     

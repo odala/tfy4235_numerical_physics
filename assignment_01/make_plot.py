@@ -111,13 +111,15 @@ def plot_trajectory(species):
     plt.contourf(X, T, U, 50, alpha=.75, cmap='binary', vmin=abs(U).min(), vmax=abs(U).max() + 0.5*(abs(U).max() - abs(U).min()))
 
     # --- Layout of plot.
-    plt.xlabel('Position [$\mu$m]', fontsize=20)
-    plt.ylabel('Time [s]', fontsize=20) 
-    cbar = plt.colorbar(); cbar.set_label(r'Potential / $\Delta U$', fontsize = 20)
+    plt.xlabel('Position [$\mu$m]', fontsize=labelsize)
+    plt.ylabel('Time [s]', fontsize=labelsize) 
+    plt.tick_params(axis='both', which='major', labelsize=ticksize)
+    cbar = plt.colorbar(); cbar.set_label(r'Potential / $\Delta U$', fontsize = labelsize)
+    cbar.ax.tick_params(labelsize=ticksize) 
     plt.axis([minimum_x*1.0e6, maximum_x*1.0e6, 0.0, 1.0*minimum_total_time])
-    plt.legend(loc='lower right')
     
     # --- Saving figure.
+    plt.tight_layout()
     plt.savefig('fig/trajectory.png')
     print 'Plotted the trajectories of the particles with tau = ', s.tau
 
@@ -206,69 +208,119 @@ def plot_ensembles_in_time(species):
 # ---------------------------------------------------------------------------
 def compare_to_boltzmann(data, dU, kT):
 
-    # --- Divide data into 100 bins.
-    minimum = data.min()
-    maximum = data.max()
+    # --- Divide data into Nbins bins.
+    Nbins = 100
+    minimum = data.min(); maximum = data.max()
     print(minimum, maximum, len(data))
-    hist, bins = np.histogram(data, bins=100, range=(minimum, maximum), normed=True)
+    hist, bins = np.histogram(data, bins=Nbins, range=(minimum, maximum), normed=True)
     bin_values = (bins[:-1] + bins[1:]) / 2
 
     # --- Plot histogram.
-    histogram = plt.figure()           
-    plt.plot(bin_values, hist,'ro')
+    histogram = plt.figure()
+    plt.scatter(bin_values/dU, hist*dU, s=50, facecolors='none', edgecolors='r')
+    #plt.plot(bin_values/dU, hist*dU,'ro')
     
     # --- Plot Boltzmann distribution.
     boltzmann_dist = lambda U: np.exp(-U/kT) / (kT*(1-np.exp(-dU/kT)))
-    U = np.linspace(minimum, maximum, 1000); b_dist = boltzmann_dist(U)
-    plt.plot(U, b_dist)
-    print 'The integral of the Boltzmann distribution from 0.0 to 0.5 = ', scipy.integrate.quad(boltzmann_dist, 0.0, 0.5)
+    U = np.linspace(minimum, maximum, Nbins); b_dist = boltzmann_dist(U)
+    plt.plot(U/dU, b_dist*dU)
+    print 'The integral of the Boltzmann distribution from 0.0 to 0.5 = ', scipy.integrate.quad(boltzmann_dist, minimum, maximum)
     
-    plt.xlabel(r'Energy $U$ [eV]', fontsize=20)
-    plt.ylabel(r'$P(U)$', fontsize=20)
-    plt.axis([minimum, maximum, 0, 1.1*max(b_dist)])
+    plt.xlabel(r'Relative energy $\frac{U}{\Delta U}$', fontsize=labelsize)
+    plt.ylabel(r'$P(U)$', fontsize=labelsize)
+    plt.tick_params(axis='both', which='major', labelsize=ticksize)
+    plt.axis([minimum/dU, maximum/dU, 0, 1.1*max(b_dist*dU)])
     print 'Generated a plot of the Boltzmann Distribution for dU / k_BT = ', dU/kT
 
     # --- Saving figure.
+    plt.tight_layout()
     plt.savefig('fig/boltzmann_distribution.png')
+
+# -----------------------------------------------------------------------
+# --- Plot potential
+#     Input : ensemble
+#     Output: 
+# -----------------------------------------------------------------------
+def plot_potential(ensemble):
+
+    # --- Plot potential as a function of x.
+    fig = plt.figure()
+    x = np.array([-ensemble.L, -(1-ensemble.alpha)*ensemble.L, 0, ensemble.alpha*ensemble.L, ensemble.L])
+    x_temp = np.array([-ensemble.L, -0.9*(1-ensemble.alpha)*ensemble.L, 0, ensemble.alpha*ensemble.L, ensemble.L])
+    U = ensemble.potential(x)
+    my_xticks = ['$-L$',r'$-L+\alpha L$','$0$',r'$\alpha L$','$L$']
+    my_yticks = ['$0$', r'$\Delta U$', '$0$', r'$\Delta U$', '$0$']
+    plt.xticks(x_temp, my_xticks, fontsize = ticksize)
+    plt.yticks(U, my_yticks, fontsize = ticksize)
+    plt.plot(x, U, 'k-', linewidth = 1.5)
+
+    # --- 
+    plt.plot([x[1], x[1]], [0, max(U)], 'k--', linewidth = 1.5)
+    plt.plot([x[3], x[3]], [0, max(U)], 'k--', linewidth = 1.5)
+
+    # --- Layout of plot.
+    plt.axis([min(x), max(x), 0, 1.2*max(U)])
+    plt.xlabel('Position $x$', fontsize=labelsize)
+    plt.ylabel('Potential $U(x)$', fontsize=labelsize) 
+
+    # --- Saving figure.
+    plt.tight_layout()
+    plt.savefig('fig/potential.png')
 
 # -----------------------------------------------------------------------
 # --- Plot y(x) with standard deviation.
 #     Input : xvalues, yvalues, xlabel, ylabel, savename, errorbar
 #     Output: x and y values at function maximum and functino minimum
 # -----------------------------------------------------------------------
-def plot_w_std_dev(x, y, std_dev, xlabel, ylabel, savename, errorbar='errorbar'):
+def plot_w_std_dev(x, y, std_dev, xlabel, ylabel, savename, colorline, errorbar='errorbar'):
     
-    # --- Plot y as a function of x.
-    fig = plt.figure()
-    plt.plot(x, y, 'bo')
+    Nplots = len(x)
 
-    # --- Plot errorbars.
-    if errorbar == 'errorbar':
-        plt.errorbar(x, y, yerr=std_dev, fmt=None, color='r')
-    elif errorbar == 'filled':
-        plt.fill_between(x, y+std_dev, y-std_dev, color='#808080', alpha='0.5')
-    elif errorbar == 'line':
-        plt.plot([x, x], [y+std_dev, y-std_dev], 'r')
-    else:
-        print 'Could not plot std_dev. You have to specify if you want filled, line or errorbar.'
+    # --- Allocate arrays for minima and maxima.
+    fmax_y, fmin_y = np.zeros(Nplots), np.zeros(Nplots)
+    fmax_x, fmin_x = np.zeros(Nplots), np.zeros(Nplots)
+    fmax_std, fmin_std = np.zeros(Nplots), np.zeros(Nplots)
+
+    fig = plt.figure()
+    for i in range(Nplots):
+        # --- Plot y as a function of x.
+        plt.plot(x[i], y[i], colorline[i])
+
+        # --- Plot errorbars.
+        if (min(std_dev[i]) == 0 and max(std_dev[i]) == 0):
+            print('No std_dev.')
+        elif errorbar == 'errorbar':
+            plt.errorbar(x[i], y[i], yerr=std_dev[i], fmt=None, color='r')
+        elif errorbar == 'filled':
+            plt.fill_between(x[i], y[i]+std_dev[i], y[i]-std_dev[i], color='#808080', alpha='0.5')
+        elif errorbar == 'line':
+            plt.plot([x[i], x[i]], [y[i]+std_dev[i], y[i]-std_dev[i]], 'r')
+        else:
+            print 'Could not plot std_dev. You have to specify if you want filled, line or errorbar.'
     
-    # --- Find the maximum and minimum of y with corresponding x-values.
-    fmax_y, fmin_y = max(y), min(y)
-    fmax_x, fmin_x = x[y.argmax()], x[y.argmin()]
-    
+        # --- Find the maximum and minimum of y with corresponding x-values.
+        fmax_y[i], fmin_y[i] = max(y[i]), min(y[i])
+        fmax_x[i], fmin_x[i] = x[i][y[i].argmax()], x[i][y[i].argmin()]
+        fmax_std[i], fmin_std[i] = std_dev[i][y[i].argmax()], std_dev[i][y[i].argmin()]
+
     # --- Layout of plot.
-    plt.axis([min(x), max(x), 1.05*(min(y)-max(std_dev)), 1.05*(max(y)+max(std_dev))])
-    plt.xlabel(xlabel, fontsize=20)
-    plt.ylabel(ylabel, fontsize=20)
+    plt.axis([0.0, 2.0, min(fmin_y), 1.05*max(fmax_y)])
+    plt.xlabel(xlabel, fontsize=labelsize)
+    plt.ylabel(ylabel, fontsize=labelsize)
     
     # --- Saving figure.
+    plt.tight_layout()
     plt.savefig(savename)
 
-    return fmax_x, fmax_y, fmin_x, fmin_y
+    return fmax_x, fmax_y, fmax_std, fmin_x, fmin_y, fmin_std
+
     
 # -----------------------------------------------------------------------        
 # -------------------------------- MAIN ---------------------------------
 # -----------------------------------------------------------------------
+
+labelsize = 25
+ticksize = 15
 
 # TEST BLOCK.
 #test_run = Particles('input.txt', 'output.txt')
@@ -276,37 +328,52 @@ def plot_w_std_dev(x, y, std_dev, xlabel, ylabel, savename, errorbar='errorbar')
 
 # TASK 7.
 # --- Assign parameters from file and plot the trajectory.
+#     Compare with Boltzmann distribution.
 '''
-run1 = Particles('input_x1e1.txt', 'output_x1e1.txt')
-run2 = Particles('input_x1e0.txt', 'output_x1e0.txt')
-run3 = Particles('input_x1e-1.txt', 'output_x1e-1.txt')
-plot_trajectory([run1, run2, run3])
+run1 = Particles('input_dU_kTe+1.txt', 'output_dU_kTe+1.txt')
+run2 = Particles('input_dU_kTe-1.txt', 'output_dU_kTe-1.txt')
+plot_trajectory([run1])
+plot_trajectory([run2])
+compare_to_boltzmann(run1.potential(run1.trajectory.flatten()), run1.dU, run1.kT)
+compare_to_boltzmann(run2.potential(run2.trajectory.flatten()), run2.dU, run2.kT)
 '''
 
-# --- Compare with Boltzmann distribution.
+# --- Plot potential.
 '''
-b_run = Particles('input_boltzmann.txt', 'output_boltzmann.txt')
-compare_to_boltzmann(b_run.potential(b_run.trajectory[:]), b_run.dU, b_run.kT)
+test = Particles('input_x1e1.txt', 'output_x1e1.txt')
+plot_potential(test)
 '''
+
+# --- Plot trajectories of different tau values.
+high    = Particles('input_tau_0point01.txt', 'output_tau_0point01.txt')
+medium  = Particles('input_tau_0point5.txt', 'output_tau_0point5.txt')
+low     = Particles('input_tau_40point0.txt', 'output_tau_40point0.txt')
+print('Plot for taus: ', high.tau, medium.tau, low.tau)
+plot_trajectory([low, medium, high])
 
 # TASK 9.
 # --- Drift velocity with respect to flashing period.
-v_run = Particles('input_vd.txt', 'output_x1e1.txt')
-data = np.loadtxt('drift_velocities.txt')
-tau = data[:, 0]
-avg_vd = data[:, 1]*v_run.L*v_run.omega
-std_dev = data[:, 2]*v_run.L*v_run.omega
-fmax_x, fmax_y, fmin_x, fmin_y = plot_w_std_dev(tau, 1e6*avg_vd, 1e6*std_dev, r'Period of flash, $\tau$ [s]', r'Average drift velocity, $\left< v_d \right>$ [$\mathrm{\mu}$m/s]', 'fig/drift_velocities.png', errorbar = 'filled')
-print 'The tau which results in the maximum drift velocity is tau = ', fmax_x
+'''
+data12nm = np.loadtxt('drift_velocities.txt')
+tau12nm = data12nm[:, 0]
+avg_vd12nm = data12nm[:, 1]
+std_dev12nm = data12nm[:, 2]
+data36nm = np.loadtxt('drift_velocities.txt')
+tau36nm = data36nm[:, 0]
+avg_vd36nm = data36nm[:, 1]*0.5
+std_dev36nm = data36nm[:, 2]
+fmax_x, fmax_y, fmax_std, fmin_x, fmin_y, fmin_std = plot_w_std_dev([tau12nm, tau12nm*3, tau36nm], [1e6*avg_vd12nm, 1e6*avg_vd12nm/3, 1e6*avg_vd36nm], [1e6*std_dev12nm, np.zeros(len(tau12nm)), 1e6*std_dev36nm], r'Period of flash, $\tau$ [s]', r'Average drift velocity, $\left< v_d \right>$ [$\mathrm{\mu}$m/s]', 'fig/drift_velocities.png', ['b.', 'r', 'r.'], errorbar = 'filled')
+print 'The tau which results in the maximum drift velocity is tau = ', fmax_x, ' with drift velocity ', fmax_y, ' and standard deviation ', fmax_std
+'''
 
 # TASK 12.
-'''
+# --- Motion of two ensembles in time.
+
 #ensemble1 = Particles('input_ensemble_check.txt', 'output_ensemble_check.txt')
 #ensemble2 = Particles('input_ensemble_check2.txt', 'output_ensemble_check2.txt')
 #ensemble3 = Particles('input.txt', 'output.txt')
-ensemble_rad12 = Particles('input_ensemble_rad12.txt', 'output_ensemble_rad12.txt')
-ensemble_rad36 = Particles('input_ensemble_rad36.txt', 'output_ensemble_rad36.txt')
+#ensemble_rad12 = Particles('input_ensemble_rad12.txt', 'output_ensemble_rad12.txt')
+#ensemble_rad36 = Particles('input_ensemble_rad36.txt', 'output_ensemble_rad36.txt')
 #run3 = Particles('input_x1e-1.txt', 'output_x1e-1.txt')
 #plot_ensembles_in_time([ensemble_rad12, ensemble_rad36])
-plot_trajectory([ensemble_rad12, ensemble_rad36])
-'''
+#plot_trajectory([ensemble_rad12, ensemble_rad36])
