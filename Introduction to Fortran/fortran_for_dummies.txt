@@ -1,0 +1,9 @@
+Some of the better resources out there:
+Best intro for f90 http://www.cs.mtu.edu/~shene/COURSES/cs201/NOTES/fortran.html
+Introducing some of Fortrans newer features (2003/2008 releases) http://beam.helsinki.fi/~saparvia/fortran.html
+Video lectures for modern fortran http://www2.cisl.ucar.edu/training/library/oop-in-fortran
+All around best resource (wiki) http://fortranwiki.org/fortran/show/HomePage
+this class is taught as coursera course yearly by Randall J Leveque all about high performance computing in general. Using python + fortran: http://faculty.washington.edu/rjl/uwamath583s11/sphinx/notes/html/index.html
+Yet another concise overview http://www.sdsc.edu/~tkaiser/f90.html
+Fortran reference sheet http://www.pa.msu.edu/~duxbury/courses/phy480/fortran90_refcard.pdf
+Decent lecture notes http://www.pa.msu.edu/~duxbury/courses/phy201_f06/Fortran90NotesI.pdf
