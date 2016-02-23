@@ -1,9 +1,10 @@
-# .gitignore file for the repo tfy42353_numerical_physics
+# .gitignore file for the repo tfy4235_numerical_physics
 
 ### Specific in this project ###
 assignment_01/*.txt
 assignment_01/*.png
 assignment_01/data/*.txt
+exercise_01/*.dat
 
 ### Fortran ###
 # Compiled Object files
