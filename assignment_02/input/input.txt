@@ -1,0 +1,16 @@
+&PARAMETERS
+iNparticles     = 1,		        ! number of particles
+iNsteps	        = 150000,         ! number of iterations
+idSteps         = 100,             ! difference between saved steps
+itimestep       = 1E-4,	            ! timestep [s/s]
+isgn            = 1,                ! radius of the particle [m]
+ix0             = 0.0,              ! starting position of particle [m]
+iy0             = 0.0,              ! starting position of particle [m]
+iz0             = 0.0,              ! starting position of particle [m]
+iu0             = 1.0,              ! starting velocity of particle [m/s]
+iv0             = 0.0,              ! starting velocity of particle [m/s]
+iw0             = 1.0,              ! starting velocity of particle [m/s]
+iB              = 1,                ! magnetic field strength [T = (N·s)/(C·m]
+iE              = 1,                ! electric field strength [V]
+
+/r
