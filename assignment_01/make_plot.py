@@ -345,11 +345,13 @@ plot_potential(test)
 '''
 
 # --- Plot trajectories of different tau values.
+'''
 high    = Particles('input_tau_0point01.txt', 'output_tau_0point01.txt')
 medium  = Particles('input_tau_0point5.txt', 'output_tau_0point5.txt')
 low     = Particles('input_tau_40point0.txt', 'output_tau_40point0.txt')
 print('Plot for taus: ', high.tau, medium.tau, low.tau)
 plot_trajectory([low, medium, high])
+'''
 
 # TASK 9.
 # --- Drift velocity with respect to flashing period.

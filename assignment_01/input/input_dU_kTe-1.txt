@@ -1,0 +1,15 @@
+&PARAMETERS
+iNparticles      = 10,		     ! number of particles
+iNsteps	         = 1000000,      ! number of iterations
+itimestep        = 1E-4,	     ! timestep [s]
+iradius          = 12E-9,        ! radius of the particle [m]
+ix0              = 0.0,          ! starting position of particle [m]
+itau             = 0.0,          ! temporal period of the ratchet potential [s]
+idU              = 0.0026,         ! [eV]
+iL               = 20E-6,        ! spatial period of the ratchet potential [m]
+ialpha           = 0.2,          ! asymmetry factor
+izeta            = 1E-3,         ! dynamic viscosity [Pa*s]
+ikT              = 0.026,        ! thermodynamic heat [eV] 
+ifraction_off    = 0.75,         ! MISS: F_ext
+idSteps          = 100           ! difference between saved steps
+/r
