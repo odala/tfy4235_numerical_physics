@@ -29,7 +29,7 @@ class Particle:
         fin = open(input_file, 'r')
         
         # --- Read parameters from file.
-        Nparameters = 13
+        Nparameters = 15
         parameters = np.zeros(Nparameters)
         i = 0
         for line in fin:
@@ -55,17 +55,19 @@ class Particle:
         self.u0          = parameters[8]
         self.v0          = parameters[9]
         self.w0          = parameters[10]
-        self.B           = parameters[11]
-        self.E           = parameters[12]
+        self.Bz           = parameters[11]
+        self.Ex           = parameters[12]
+        self.Ey           = parameters[13]
+        self.Ez           = parameters[14]
 
         self.mass = m_p if (self.sgn > 0) else m_e
         
         # --- Calculate additional parameters.
-        self.omega = e * self.B / self.mass
-        self.r = np.sqrt(self.u0**2 + self.v0**2) / self.omega
+        self.omega = e * self.Bz / self.mass
+        self.r = np.sqrt((self.u0-self.Ey/self.Bz)**2 + self.v0**2) / self.omega
         self.total_time = self.Nsteps*self.timestep
 
-def plot_xy(data, savename):
+def plot_xy(data, savename, xlabel = r'$x$', ylabel = r'$y$'):
 
     fig = plt.figure()
 
@@ -77,13 +79,13 @@ def plot_xy(data, savename):
         plt.plot(item[0], item[1], alpha = 0.7, c=colors[i], ls = linestyles[i])
 
     # --- Layout.
-    plt.xlabel(r'$x$', fontsize=labelsize)
-    plt.ylabel(r'$y$', fontsize=labelsize)
-    plt.axis([-1.5, 15, -2.5, 0.5])
+    plt.xlabel(xlabel, fontsize=labelsize)
+    plt.ylabel(ylabel, fontsize=labelsize)
+    #plt.axis([-1.5, 15, -2.5, 0.5])
 
     # --- Saving figure.
     plt.tight_layout()
-    plt.savefig(savename);
+    plt.savefig(savename + '.png');
 
 def plot_xyz(data, savename):
 
@@ -104,8 +106,14 @@ def plot_xyz(data, savename):
 
     # --- Saving figure.
     plt.tight_layout()
+    '''ax.view_init(elev=90., azim=270)
+    plt.savefig(savename + '_xy' + '.png') #OK!
+    ax.view_init(elev=0., azim=270)
+    plt.savefig(savename + '_xz' + '.png') # OK!
+    ax.view_init(elev=0., azim=0)
+    plt.savefig(savename + '_zy' + '.png')'''
+    #plt.savefig(savename + '.png')
     plt.show()
-    plt.savefig(savename);
 
 def plot_test_2():
     # generate 3D sample data
@@ -115,7 +123,7 @@ def plot_test_2():
     ax = fig.gca(projection='3d')
     ax.plot_surface(X,Y,Z,alpha=0.5)
 
-    plt.savefig('fig/test2.png');
+    plt.savefig('fig/test2' + '.png');
         
 # -----------------------------------------------------------------------        
 # -------------------------------- MAIN ---------------------------------
@@ -127,7 +135,7 @@ plt.switch_backend('TkAgg')
 labelsize = 20
 ticksize = 15
 
-particle = Particle('input.txt')
+particle = Particle('input/input.txt')
 
 v_perp = np.sqrt(particle.u0**2 + particle.v0**2)
 v_parall = particle.w0
@@ -135,34 +143,35 @@ delta0 = np.pi/2 #np.arctan(particle.u0 / particle.v0)
 
 # --- Analytical in reduced units.
 ts_red = np.linspace(0, particle.total_time, 100000)
-Axs = - (np.cos(ts_red + delta0) - np.cos(delta0)) + particle.x0/particle.r
-Ays = (np.sin(ts_red + delta0) - np.sin(delta0)) + particle.y0/particle.r - particle.E/particle.B*ts_red
+Axs = - particle.r/(v_perp/particle.omega)*(np.cos(ts_red + delta0) - np.cos(delta0)) + particle.x0/particle.r + particle.Ey/particle.Bz*ts_red
+Ays = particle.r/(v_perp/particle.omega)*(np.sin(ts_red + delta0) - np.sin(delta0)) + particle.y0/particle.r
 Azs = v_parall/v_perp*ts_red + particle.z0/particle.r
 
-# --- Read in trajectory.
-data = np.loadtxt('e_output.txt')
+
+'''# --- Read in trajectory.
+data = np.loadtxt('output/e_output.txt')
 positions = data[0:3, :]
-
-plot_xy([ [Axs, Ays, Azs], positions], 'fig/e.png')
-print('one')
-
-# --- Read in trajectory.
-data = np.loadtxt('mp_output.txt')
+plot_xy([ [Axs, Ays, Azs], positions], 'fig/e')
+data = np.loadtxt('output/mp_output.txt')
 positions = data[0:3, :]
-
-plot_xy([ [Axs, Ays, Azs], positions], 'fig/mp.png')
-print('two')
+plot_xy([ [Axs, Ays, Azs], positions], 'fig/mp')
+data = np.loadtxt('output/rk4_output.txt')
+positions = data[0:3, :]
+plot_xy([ [Axs, Ays, Azs], positions], 'fig/rk4')'''
 
 # --- Read in trajectory.
-data = np.loadtxt('rk4_output.txt')
+data = np.loadtxt('output/rk4_output.txt')
 positions = data[0:3, :]
 
-plot_xy([ [Axs, Ays, Azs], positions], 'fig/rk4.png')
-print('three')
+plot_xy([ [Axs, Ays], positions[0:2]], 'fig/rk4_xy')
+plot_xy([ [Axs, Azs], [positions[0], positions[2]] ], 'fig/rk4_xz', r'$x$', r'$z$')
+plot_xy([ [Azs, Ays], [positions[2], positions[1]] ], 'fig/rk4_zy', r'$z$', r'$y$')
+plot_xyz([ [Axs, Ays, Azs], positions ], 'fig/3d_projection_red')
 
 # --- Analytical in real units.
+positions = data[0:3, :]
 ts_real = ts_red / particle.omega
-Axs = - particle.r*(np.cos(particle.omega*ts_real + delta0) - np.cos(delta0)) + particle.x0
-Ays = particle.r*(np.sin(particle.omega*ts_real + delta0) - np.sin(delta0)) + particle.y0 - particle.E/particle.B*ts_real
+Axs = - particle.r*(np.cos(particle.omega*ts_real + delta0) - np.cos(delta0)) + particle.x0 + particle.Ey/particle.Bz*ts_real
+Ays = particle.r*(np.sin(particle.omega*ts_real + delta0) - np.sin(delta0)) + particle.y0
 Azs = v_parall*ts_real + particle.z0
-plot_xyz([ [Axs/particle.r, Ays/particle.r, Azs/particle.r], positions], 'fig/test2.png')
+#plot_xyz([ [Axs/particle.r, Ays/particle.r, Azs/particle.r], positions], 'fig/3d_projection_real')

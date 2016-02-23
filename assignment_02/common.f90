@@ -14,7 +14,7 @@ Module common
 
     ! --- Define global parameters
     Integer     :: Nparticles, Nsteps, dSteps, sgn
-    Real(wp)    :: timestep, x0, y0, z0, u0, v0, w0, omega, r, mass, vPerp, vPara, Bfield, Efield
+    Real(wp)    :: timestep, x0, y0, z0, u0, v0, w0, omega, r, mass, vPerp, vPara, Bz, Ex, Ey, Ez
     
     !Type :: Parameter_Container
     ! -----------------------------------------------------------

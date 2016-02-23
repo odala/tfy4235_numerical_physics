@@ -8,14 +8,14 @@ Module functions
 
     
     ! --- Function that returns the ExB drift velocity.
-    !     Input : Efield, Bfield
+    !     Input : Ey, Bz
     !     Output: updated position
-    Function calculate_drift_velocity(Efield, Bfield) result(v_ExB)
+    Function calculate_drift_velocity(Ey, Bz) result(v_ExB)
         Implicit None
-        Real(wp), Intent(in)    :: Efield, Bfield
+        Real(wp), Intent(in)    :: Ey, Bz
         Real(wp)                :: v_ExB    
 
-        v_Exb = (Efield*Bfield) / (Bfield**2)
+        v_Exb = (Ey*Bz) / (Bz**2)
 
     end Function calculate_drift_velocity
 
@@ -40,8 +40,8 @@ Module functions
 
             ! --- Iterate through all the time steps.
             do j = 2, nSteps
-                us(j) = us(j-1) + dt * sgn * (Efield + Bfield * vs(j-1))
-                vs(j) = vs(j-1) - dt * sgn * Bfield * us(j-1)
+                us(j) = us(j-1) + dt * sgn * Bz * vs(j-1)
+                vs(j) = vs(j-1) + dt * sgn * (Ey - Bz * us(j-1))
                 ws(j) = ws(j-1)
                 
                 xs(j) = xs(j-1) + dt * 0.5_wp*(us(j) + us(j-1))
@@ -72,10 +72,10 @@ Module functions
 
             ! --- Iterate through all the time steps.
             do j = 2, nSteps
-                us(j) = us(j-1) + 0.5_wp*dt * sgn * (Efield + Bfield * vs(j-1))
-                vs(j) = vs(j-1) - 0.5_wp*dt * sgn * Bfield * us(j-1)
-                us(j) = us(j-1) + dt * sgn * (Efield + Bfield * vs(j))
-                vs(j) = vs(j-1) - dt * sgn * Bfield * us(j)
+                us(j) = us(j-1) + 0.5_wp*dt * sgn * Bz * vs(j-1)
+                vs(j) = vs(j-1) + 0.5_wp*dt * sgn * (Ey - Bz * us(j-1))
+                us(j) = us(j-1) + dt * sgn * Bz * vs(j)
+                vs(j) = vs(j-1) + dt * sgn * (Ey - Bz * us(j))
                 ws(j) = ws(j-1)
                 
                 xs(j) = xs(j-1) + dt * 0.5_wp*(us(j) + us(j-1))
@@ -107,14 +107,14 @@ Module functions
 
             ! --- Iterate through all the time steps.
             do j = 2, nSteps
-                a1 = + sgn * (Efield + Bfield * vs(j-1))
-                b1 = - sgn * Bfield * us(j-1)
-                a2 = + sgn * (Efield + Bfield * (vs(j-1) + dt/2*b1))
-                b2 = - sgn * Bfield * (us(j-1) + dt/2*a1)
-                a3 = + sgn * (Efield + Bfield * (vs(j-1) + dt/2*b2))
-                b3 = - sgn * Bfield * (us(j-1) + dt/2*a2)
-                a4 = + sgn * (Efield + Bfield * (vs(j-1) + dt*b3))
-                b4 = - sgn * Bfield * (us(j-1) + dt*a3)
+                a1 = + sgn * Bz * vs(j-1)
+                b1 = + sgn * (Ey - Bz * us(j-1))
+                a2 = + sgn * Bz * (vs(j-1) + dt/2*b1)
+                b2 = + sgn * (Ey - Bz * (us(j-1) + dt/2*a1))
+                a3 = + sgn * Bz * (vs(j-1) + dt/2*b2)
+                b3 = + sgn * (Ey - Bz * (us(j-1) + dt/2*a2))
+                a4 = + sgn * Bz * (vs(j-1) + dt*b3)
+                b4 = + sgn * (Ey - Bz * (us(j-1) + dt*a3))
                 
                 us(j) = us(j-1) + dt/6 * (a1 + 2*a2 + 2*a3 + a4)
                 vs(j) = vs(j-1) + dt/6 * (b1 + 2*b2 + 2*b3 + b4)

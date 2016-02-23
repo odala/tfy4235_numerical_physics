@@ -42,28 +42,33 @@ Program main
     write(*,fmt_xyz) '(v0, u0, w0) (m/s): ( ', u0, ', ', v0, ', ', w0, ' )'
     write(*,format_1)  'Mass: (kg)'   , mass
     write(*,format_0) 'dSteps: '      , dSteps
-    write(*,format_1) 'B (T): '       , Bfield
-    write(*,format_1) 'E (T): '       , Efield
+    write(*,format_1) 'B (T): '       , Bz
+    write(*,format_1) 'E (T): '       , Ey
     write(*,*)
 
     ! --- Introduce reduced units.
     x0 = x0/r
     y0 = y0/r
     z0 = z0/r
+    write(*,*) u0
     u0 = u0/vPerp
+    write(*,*) u0
+    write(*,*) v0
     v0 = v0/vPerp
+    write(*,*) v0
+    write(*,*) w0
     w0 = w0/vPerp
-    vPerp = vPerp/vPerp
-    vPara = vPara/vPerp
+    write(*,*) w0
+    !vPerp = vPerp/vPerp
+    !vPara = vPara/vPerp
     write(*,*) 'omega: ', omega
     !timestep    = timestep*omega
-    Bfield = Bfield*e/(mass*omega)
-    Efield = Efield*e/(mass*r*omega**2)
-    write(*,*) 'Bfield: ', Bfield
-    write(*,*) 'Efield: ', Efield
-
-    write(*,*) 'Drift velocity = ', calculate_drift_velocity(Efield, Bfield)
-
+    !Bz = Bz*e/(mass*omega)
+    !Ey = Ey*e/(mass*r*omega**2)
+    write(*,*) 'Bz: ', Bz
+    write(*,*) 'Ey: ', Ey
+    write(*,*) 'Drift velocity = ', calculate_drift_velocity(Ey, Bz)
+    
     ! --- Allocate space for the position- and velocity arrays.
     Allocate(xs(Nsteps), ys(Nsteps), zs(Nsteps), us(Nsteps), vs(Nsteps), ws(Nsteps))
 

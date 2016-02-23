@@ -47,8 +47,10 @@ Module readinput
         u0              = iu0
         v0              = iv0
         w0              = iw0
-        Bfield          = iB
-        Efield          = iE
+        Bz              = iBz
+        Ex              = iEx
+        Ey              = iEy
+        Ez              = iEz
                 
         ! --- Calculate values from these parameters
         if (sgn > 0) then
@@ -56,8 +58,8 @@ Module readinput
         else
             mass = m_e
         end if
-        omega = e*Bfield/mass
-        vPerp = sqrt(u0**2+v0**2)
+        omega = e*Bz/mass
+        vPerp = sqrt((u0)**2+v0**2)
         vPara = w0
         r = vPerp/omega
         
