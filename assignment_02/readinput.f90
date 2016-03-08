@@ -10,7 +10,7 @@ Module readinput
         Implicit none
         Character(len=*), Intent(in) :: filename
         Integer                      :: iNparticles, iNsteps, idSteps
-        Real(wp)                     :: itimestep, isgn, ix0, iy0, iz0, iu0, iv0, iw0, iB, iE
+        Real(wp)                     :: itimestep, isgn, ix0, iy0, iz0, iu0, iv0, iw0, iBz, iEx, iEy, iEz
 
         ! --- List of names to look for in the input file.
         !     These are local variables.
@@ -19,8 +19,10 @@ Module readinput
         iNsteps,                &
         idSteps,                &
         itimestep,              &        
-        iB,                     &
-        iE,                     &
+        iBz,                    &
+        iEx,                    &
+        iEy,                    &
+        iEz,                    &
         isgn,                   &
         ix0,                    &
         iy0,                    &
@@ -32,7 +34,7 @@ Module readinput
         ! --- Read the input file and assign corresponding values
         !     to named variables.
         open(unit=1, file=filename, status='old')
-        read(1,nml=parameters)
+        read(1, nml=parameters)
         close(1)
 
         ! --- Assign the values read to the parameters (global variables).
@@ -53,17 +55,24 @@ Module readinput
         Ez              = iEz
                 
         ! --- Calculate values from these parameters
-        if (sgn > 0) then
-            mass = m_p
-        else
-            mass = m_e
-        end if
-        omega = e*Bz/mass
-        vPerp = sqrt((u0)**2+v0**2)
-        vPara = w0
-        r = vPerp/omega
-        
+        !if (sgn > 0) then
+        !    mass = m_p
+        !else
+        !    mass = m_e
+        !end if
+        !omega = e*Bz/mass
+        v_perp = sqrt((u0)**2+v0**2)
+        v_para = w0
+        !r = vPerp/omega
 
+        ! --- Initialize electric and magnetic field arrays.
+        Efield(1) = Ex
+        Efield(2) = Ey
+        Efield(3) = Ez
+        Bfield(1) = 0.0_wp
+        Bfield(2) = 0.0_wp
+        Bfield(3) = Bz
+        
     end subroutine read_input_file
 
 end Module readinput
