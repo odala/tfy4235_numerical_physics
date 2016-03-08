@@ -1,26 +1,29 @@
-Program main
+program main
 
     ! --- The modules we need to use in the program.
-    Use common
-    Use readinput
-    Use functions
+    use common
+    use readinput
+    use functions
+    use integration
+    use functionHolder
+
+    implicit none
 
     ! --- Define variables.
-    Implicit None
-    Integer                 :: i
-    Real(wp)                :: start, middle1, middle2, finish
-    Real(wp), allocatable   :: xs(:), ys(:), zs(:), us(:), vs(:), ws(:)
+    integer                 :: i, j
+    real(wp)                :: start, middle1, middle2, finish
+    real(wp), allocatable   :: pos_vel(:,:), pos_vel_exact(:,:)
+
+    ! --- Define variables for checking integration schemes.
+    real(wp)    :: correct_answer, startPoint, endPoint
+    integer     :: Nin
     
     ! --- Define name of files.
-    Character(len=*), parameter :: input_file = 'input/input.txt'
-    Character(len=*), parameter :: trajectory_file = 'output/e_output.txt'
-    Character(len=*), parameter :: trajectory_file_2 = 'output/mp_output.txt'
-    Character(len=*), parameter :: trajectory_file_3 = 'output/rk4_output.txt'
-    Character(len=*), parameter :: drift_velocity_file = 'drift_velocities.txt'
-    Character(len=*), parameter :: format_0 = '(A15, I14)'
-    Character(len=*), parameter :: format_1 = '(A15, E14.4)'
-    Character(len=*), parameter :: fmt_xyz = '(A15, E14.4, A2, E14.4, A2, E14.4, A2)'
-    
+    character(len=*), parameter :: input_file = 'input/input.txt'
+    character(len=*), parameter :: e_file     = 'output/e_output.txt'
+    character(len=*), parameter :: mp_file    = 'output/mp_output.txt'
+    character(len=*), parameter :: rk4_file   = 'output/rk4_output.txt'
+    character(len=*), parameter :: exact_file = 'output/exact_output.txt'
     
     ! --- Get initial time and say hello.
     write(*,*) 'Program starting!'
@@ -35,88 +38,77 @@ Program main
     ! --- Write to command line a few words to check
     !     the parameters have read correctly.
     write(*,*) 'Check parameters.'
-    write(*,format_0) 'Nparticles: '  , Nparticles
-    write(*,format_0) 'Nsteps: '      , Nsteps
-    write(*,format_1) 'timestep (s): ', timestep
-    write(*,fmt_xyz) '(x0, y0, z0) (m): ( ', x0, ', ', y0, ', ', z0, ' )'
-    write(*,fmt_xyz) '(v0, u0, w0) (m/s): ( ', u0, ', ', v0, ', ', w0, ' )'
-    write(*,format_1)  'Mass: (kg)'   , mass
-    write(*,format_0) 'dSteps: '      , dSteps
-    write(*,format_1) 'B (T): '       , Bz
-    write(*,format_1) 'E (T): '       , Ey
-    write(*,*)
+    write(*,'(A15, I14)') 'Nparticles: '  , Nparticles
+    write(*,'(A15, I14)') 'Nsteps: '      , Nsteps
+    write(*,'(A15, E14.4)') 'timestep (s): ', timestep
+    write(*,'(A15, E14.4, A2, E14.4, A2, E14.4, A2)') '(x0, y0, z0) (m): ( ', x0, ', ', y0, ', ', z0, ' )'
+    write(*,'(A15, E14.4, A2, E14.4, A2, E14.4, A2)') '(v0, u0, w0) (m/s): ( ', u0, ', ', v0, ', ', w0, ' )'
+    !write(*,format_1)  'Mass: (kg)'   , mass
+    write(*,'(A15, I14)') 'dSteps: '      , dSteps
+    write(*,*) 'B = ', Bfield 
+    write(*,*) 'E = ', Efield
+    write(*,*)    
 
     ! --- Introduce reduced units.
-    x0 = x0/r
-    y0 = y0/r
-    z0 = z0/r
-    write(*,*) u0
-    u0 = u0/vPerp
-    write(*,*) u0
-    write(*,*) v0
-    v0 = v0/vPerp
-    write(*,*) v0
-    write(*,*) w0
-    w0 = w0/vPerp
-    write(*,*) w0
-    !vPerp = vPerp/vPerp
-    !vPara = vPara/vPerp
-    write(*,*) 'omega: ', omega
-    !timestep    = timestep*omega
-    !Bz = Bz*e/(mass*omega)
-    !Ey = Ey*e/(mass*r*omega**2)
-    write(*,*) 'Bz: ', Bz
-    write(*,*) 'Ey: ', Ey
-    write(*,*) 'Drift velocity = ', calculate_drift_velocity(Ey, Bz)
+    !x0 = x0/r !y0 = y0/r !z0 = z0/r!u0 = u0/vPerp!v0 = v0/vPerp!w0 = w0/!vPerpvPerp = vPerp/vPerp !vPara = vPara/vPerp !Bz = Bz*e/(mass*omega) !Ey = Ey*e/(mass*r*omega**2)
     
     ! --- Allocate space for the position- and velocity arrays.
-    Allocate(xs(Nsteps), ys(Nsteps), zs(Nsteps), us(Nsteps), vs(Nsteps), ws(Nsteps))
-
+    allocate(pos_vel(Nsteps, 6), pos_vel_exact(Nsteps/dSteps, 6))
+    
     ! --- Initialize random number generator.
     !call initialize_random_seed()
 
-    ! --- Open output file named 'output.txt'.
-    !     It will contain the positions of 
-    !     the particles through the simulation.
-    open(unit=1, file=trajectory_file, form="formatted", status="replace", action="write")
-    open(unit=2, file=trajectory_file_2, form="formatted", status="replace", action="write")
-    open(unit=3, file=trajectory_file_3, form="formatted", status="replace", action="write")
+    ! --- Initialize the magnetic and electric fields.
+    write(*,*) 'Type of field: ', type_of_field
     
     ! --- Make the particles evolve during Nsteps.
-    !     Using the euler scheme on the N particles.
-    do i = 1, Nparticles
-        write(*,*) i
-        call cpu_time(middle1)
-        call euler_scheme(xs, ys, zs, us, vs, ws, timestep)
-        call cpu_time(middle2)
-        write(*,*) 'Euler: Time =', middle2 - middle1, 'seconds.'
-        write(1,*) xs(1:Nsteps:dSteps)
-        write(1,*) ys(1:Nsteps:dSteps)
-        write(1,*) zs(1:Nsteps:dSteps)
-        call cpu_time(middle1)
-        call midpoint_scheme(xs, ys, zs, us, vs, ws, timestep)
-        call cpu_time(middle2)
-        write(*,*) 'Midpoint: Time =', middle2 - middle1, 'seconds.'
-        write(2,*) xs(1:Nsteps:dSteps)
-        write(2,*) ys(1:Nsteps:dSteps)
-        write(2,*) zs(1:Nsteps:dSteps)
-        call cpu_time(middle1)
-        call rk4_scheme(xs, ys, zs, us, vs, ws, timestep)
-        call cpu_time(middle2)
-        write(*,*) 'RK4: Time =', middle2 - middle1, 'seconds.'
-        write(3,*) xs(1:Nsteps:dSteps)
-        write(3,*) ys(1:Nsteps:dSteps)
-        write(3,*) zs(1:Nsteps:dSteps)
-        
-    end do
+    call cpu_time(middle1)
+    call iterate(pos_vel, timestep, 'euler')
+    call cpu_time(middle2)
+    write(*,*) 'Euler: Time =', middle2 - middle1, 'seconds.'
+    call write_to_file([ ((1._wp*i*dSteps*timestep),i=0,Nsteps/dSteps-1)  ], pos_vel(1:Nsteps:dSteps,:), e_file)
+    call cpu_time(middle1)
+    call iterate(pos_vel, timestep, 'midpoint')
+    call cpu_time(middle2)
+    write(*,*) 'Midpoint: Time =', middle2 - middle1, 'seconds.'
+    call write_to_file([ ((1._wp*i*dSteps*timestep),i=0,Nsteps/dSteps-1)  ], pos_vel(1:Nsteps:dSteps,:), mp_file)
+    call cpu_time(middle1)
+    call iterate(pos_vel, timestep, 'rk4')
+    call cpu_time(middle2)
+    write(*,*) 'RK4: Time =', middle2 - middle1, 'seconds.'
+    call write_to_file([ ((1._wp*i*dSteps*timestep),i=0,Nsteps/dSteps-1)  ], pos_vel(1:Nsteps:dSteps,:), rk4_file)
 
-    ! --- Close output file.
-    close(unit=1)
-    close(unit=2)
-    close(unit=3)
+    ! --- Get exact solution to the trajectory.
+    pos_vel_exact = calculate_exact_trajectory()
+    call write_to_file([ ((1._wp*i*dSteps*timestep),i=0,Nsteps/dSteps-1) ], pos_vel_exact, exact_file)
 
     ! --- Deallocate arrays.
-    Deallocate(xs, ys, zs, us, vs, ws)
+    deallocate(pos_vel, pos_vel_exact)
+
+    ! --- Check for Helmholtz field.
+    if (type_of_field == 'helmholtz') then
+        rPos = 0._wp
+        zPos = 0._wp
+        write(*,*) 'Radial field strength in (0,0,0): ', integrate(r_integrand, 0._wp, 2._wp*pi, 100, method='simpson')
+        write(*,*) 'Axial field strength in (0,0,0): ' , integrate(z_integrand, 0._wp, 2._wp*pi, 100, method='simpson')
+        zPos = 1.0_wp
+        write(*,*) 'Radial field strength in (0,0,1): ', integrate(r_integrand, 0._wp, 2._wp*pi, 100, method='simpson')
+        write(*,*) 'Axial field strength in (0,0,1): ' , integrate(z_integrand, 0._wp, 2._wp*pi, 100, method='simpson')
+        correct_answer = (coilRadius**2 + (zPos - 1._wp)**2)**(-1.5_wp) + (coilRadius**2 + (zPos + 1._wp)**2)**(-1.5_wp)
+        correct_answer = correct_answer * 0.5_wp*(coilRadius**2 + 1._wp)**1.5_wp 
+        write(*,*) 'Should be: ', correct_answer
+    end if
+
+    correct_answer = 20.035749854820_wp
+    startPoint = 0._wp
+    endPoint = 10._wp
+    Nin = 100
+    
+    write(*,*) 'simpson: ', (integrate(afun, startPoint, endPoint, Nin, method='simpson') )
+    write(*,*) 'leftrect: ', (integrate(afun, startPoint, endPoint, Nin, method='leftrect'))
+    write(*,*) 'midrect: ', (integrate(afun, startPoint, endPoint, Nin, method='midrect'))
+    write(*,*) 'rightrect: ', (integrate(afun, startPoint, endPoint, Nin, method='rightrect'))
+    write(*,*) 'trapezoid: ', (integrate(afun, startPoint, endPoint, Nin, method='trapezoid'))
 
     ! --- Get final time and say goodbye.
     call cpu_time(finish)
@@ -125,4 +117,4 @@ Program main
     write(*,*) 'Time =', finish - start, 'seconds.'
     write(*,*)
 	
-end Program main
+end program main

@@ -72,11 +72,11 @@ def plot_xy(data, savename, xlabel = r'$x$', ylabel = r'$y$'):
     fig = plt.figure()
 
     # --- Plot points in 2D.
-    colors = ['r', 'b']
-    linestyles = ['dashed', 'solid']
+    colors  = ['k', 'b', 'r', 'g']
+    markers = ['s', 'D', 'o', 'x']
 
     for i, item in enumerate(data):
-        plt.plot(item[0], item[1], alpha = 0.7, c=colors[i], ls = linestyles[i])
+        plt.scatter(item[0], item[1], alpha = 0.9, facecolors='none', edgecolors=colors[i], marker=markers[i])
 
     # --- Layout.
     plt.xlabel(xlabel, fontsize=labelsize)
@@ -93,12 +93,21 @@ def plot_xyz(data, savename):
     ax  = fig.gca(projection='3d')
 
     # --- Plot points in 3D.
-    colors = ['r', 'b']
-    linestyles = ['dashed', 'solid']
+    colors  = ['k', 'b', 'r', 'g']
+    markers = ['s', 'D', 'o', 'x']
 
     for i, item in enumerate(data):
-        ax.plot(item[0], item[1], item[2], alpha = 0.7, c=colors[i], ls = linestyles[i])
+        ax.scatter(item[0], item[1], item[2], alpha = 0.9, facecolors='none', edgecolors=colors[i], marker = markers[i])
 
+    if False:
+        theta = np.linspace(0, 2*np.pi, 100)
+        x     = 0.2*np.cos(theta)
+        y     = 0.3*np.sin(theta)
+        z1    = [1]*100
+        z2    = [-1]*100
+        ax.scatter(x, y, z1, alpha = 0.7, c='r', marker = 'o' )
+        ax.scatter(x, y, z2, alpha = 0.7, c='r', marker = 'o' )
+    
     # --- Layout.
     ax.set_xlabel(r'$x$', fontsize=labelsize)
     ax.set_ylabel(r'$y$', fontsize=labelsize)
@@ -129,49 +138,56 @@ def plot_test_2():
 # -------------------------------- MAIN ---------------------------------
 # -----------------------------------------------------------------------
 
+# --- Some configuration for the plotting.
 plt.switch_backend('TkAgg')
 #print(matplotlib.get_backend())
-
 labelsize = 20
 ticksize = 15
 
+# --- Read in experimental parameters.
 particle = Particle('input/input.txt')
 
-v_perp = np.sqrt(particle.u0**2 + particle.v0**2)
-v_parall = particle.w0
-delta0 = np.pi/2 #np.arctan(particle.u0 / particle.v0)
+# --- Read in exact trajectory (only used for task 1).
+data_exact       = np.loadtxt('output/exact_output.txt')
+ts_exact         = data_exact[ 0 , :]
+positions_exact  = data_exact[1:4, :]
+velocities_exact = data_exact[4:7, :]
 
-# --- Analytical in reduced units.
-ts_red = np.linspace(0, particle.total_time, 100000)
-Axs = - particle.r/(v_perp/particle.omega)*(np.cos(ts_red + delta0) - np.cos(delta0)) + particle.x0/particle.r + particle.Ey/particle.Bz*ts_red
-Ays = particle.r/(v_perp/particle.omega)*(np.sin(ts_red + delta0) - np.sin(delta0)) + particle.y0/particle.r
-Azs = v_parall/v_perp*ts_red + particle.z0/particle.r
+# --- Read in numerical trajectory.
+data       = np.loadtxt('output/rk4_output.txt')
+ts         = data[ 0 , :]
+positions  = data[1:4, :]
+velocities = data[4:7, :]
+
+# --- TASK 1 --- #
+
+# --- Read in trajectories.
+positions_e   = np.loadtxt('output/e_output.txt')[1:4, :]
+positions_mp  = np.loadtxt('output/mp_output.txt')[1:4, :]
+positions_rk4 = np.loadtxt('output/rk4_output.txt')[1:4, :]
+
+# --- Plot trajectories.
+plot_xy([ positions_e, positions_mp, positions_rk4], 'fig/projection_xy', r'$\hat{x}$', r'$\hat{y}$')
+plot_xy([ positions_e[0:3:2], positions_mp[0:3:2], positions_rk4[0:3:2] ], 'fig/projection_xz', r'$\hat{x}$', r'$\hat{z}$')
+plot_xyz([ positions_e, positions_mp, positions_rk4 ], 'fig/projection_xyz')
+
+# --- Read in velocites.
+velocities_e   = np.loadtxt('output/e_output.txt')[4:7, :]
+velocities_mp  = np.loadtxt('output/mp_output.txt')[4:7, :]
+velocities_rk4 = np.loadtxt('output/rk4_output.txt')[4:7, :]
+
+# --- Plot relative variation in kinetic energy.
+calculate_kinetic_energy = lambda u, v, w: ( np.sqrt(np.power(u, 2) + np.power(v, 2) + np.power(w, 2)) - np.sqrt(u[0]**2 + v[0]**2 + w[0]**2)) / np.sqrt(u[0]**2 + v[0]**2 + w[0]**2)
+plt.semilogy(ts, abs(calculate_kinetic_energy(velocities_e[0], velocities_e[1], velocities_e[2])))
+plt.semilogy(ts, abs(calculate_kinetic_energy(velocities_mp[0], velocities_mp[1], velocities_mp[2])))
+plt.semilogy(ts, abs(calculate_kinetic_energy(velocities_rk4[0], velocities_rk4[1], velocities_rk4[2])))
+#plt.plot(ts, calculate_kinetic_energy(velocities_exact[0], velocities_exact[1], velocities_exact[2]))
+plt.show()
+
+#plot_xy([ positions[0:2], positions_exact[0:2]], 'fig/rk4_xy')
+#plot_xy([ [positions[0], positions[2]], [positions_exact[0], positions_exact[2]] ], 'fig/rk4_xz', r'$x$', r'$z$')
+#plot_xy([ [positions[2], positions[1]], [positions_exact[2], positions_exact[1]] ], 'fig/rk4_zy', r'$z$', r'$y$')
+#plot_xyz([ positions, positions_exact ], 'fig/3d_projection_red')
 
 
-'''# --- Read in trajectory.
-data = np.loadtxt('output/e_output.txt')
-positions = data[0:3, :]
-plot_xy([ [Axs, Ays, Azs], positions], 'fig/e')
-data = np.loadtxt('output/mp_output.txt')
-positions = data[0:3, :]
-plot_xy([ [Axs, Ays, Azs], positions], 'fig/mp')
-data = np.loadtxt('output/rk4_output.txt')
-positions = data[0:3, :]
-plot_xy([ [Axs, Ays, Azs], positions], 'fig/rk4')'''
-
-# --- Read in trajectory.
-data = np.loadtxt('output/rk4_output.txt')
-positions = data[0:3, :]
-
-plot_xy([ [Axs, Ays], positions[0:2]], 'fig/rk4_xy')
-plot_xy([ [Axs, Azs], [positions[0], positions[2]] ], 'fig/rk4_xz', r'$x$', r'$z$')
-plot_xy([ [Azs, Ays], [positions[2], positions[1]] ], 'fig/rk4_zy', r'$z$', r'$y$')
-plot_xyz([ [Axs, Ays, Azs], positions ], 'fig/3d_projection_red')
-
-# --- Analytical in real units.
-positions = data[0:3, :]
-ts_real = ts_red / particle.omega
-Axs = - particle.r*(np.cos(particle.omega*ts_real + delta0) - np.cos(delta0)) + particle.x0 + particle.Ey/particle.Bz*ts_real
-Ays = particle.r*(np.sin(particle.omega*ts_real + delta0) - np.sin(delta0)) + particle.y0
-Azs = v_parall*ts_real + particle.z0
-#plot_xyz([ [Axs/particle.r, Ays/particle.r, Azs/particle.r], positions], 'fig/3d_projection_real')
+# --- TASK 2 --- #
