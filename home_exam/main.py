@@ -123,6 +123,10 @@ def time_until_collision(particle1, particle2):
         velocity2 = particle2.velocity() - ((1.0+xi)*particle1.mass/(particle1.mass+particle2.mass)*np.dot(dv,dx2)/R**2)*dx2
         return dt, velocity1, velocity2
 
+# --- Function: Calculate if a new particle overlaps one of 
+#     the existing particles.
+#     input : Particle, list of Particles.
+#     output: boolean.
 def is_overlap(particle, particles):
     for p in particles:
         distance = np.sqrt((particle.x - p.x)**2 + (particle.y - p.y)**2)
@@ -130,18 +134,10 @@ def is_overlap(particle, particles):
             return True
     return False
 
-def plot_speed_distribution(particles, filename):
-    
-    # --- Calculate speed of particles.
-    Nparticles = len(particles)
-    speeds = np.zeros(Nparticles)
-    for i in range(Nparticles):
-        speeds[i] = np.sqrt(particles[i].vx**2 + particles[i].vy**2)
-
-    # --- Save speeds to file just in case.
-    fout = open('my_speeds.dat', 'ab')
-    np.savetxt(fout, speeds)
-    fout.close()
+# --- Function: Plot the distribution of speeds in a histogram.
+#     input : list of speeds, filename of savefile.
+#     output: none, but saves a figure of the histogram.
+def plot_speed_distribution(speeds, filename):
 
     # --- Divide data into Nbins.
     Nbins = 101
@@ -163,17 +159,35 @@ def plot_speed_distribution(particles, filename):
     plt.tight_layout()
     plt.savefig(filename)
 
+# --- Function: Calculate the average of the variable 
+#     colcount in Particle.
+#     input : list of Particles.
+#     output: average colcount.
 def calculate_avg_colcount(particles):
     avg = 0.0
     for p in particles:
         avg += p.colcount
     return avg/len(particles)
 
+# --- Function: Evaluates if the colcount hasn't 
+#     changed since the collision was calculated.
+#     input : indexes of the involved particles, list of all particles, old colcount.
+#     output: boolean.
 def is_colcountOK(involved, particles, colcount):
     for i in range(len(involved)):
-        if colcount[i] != particles[involved[i]].colcount:
+        if colcount[i] != particles[involved[i]].colcount: 
             return False
     return True
+
+# --- Function: Get the corresponding vector 
+#     of speeds from a list of Particles.
+#     input : list of Particles
+#     output: list of speeds.
+def get_speed_vector(particles):
+    Nparticles = len(particles)
+    speeds = np.zeros(Nparticles)
+    for i in range(Nparticles):
+        speeds[i] = np.sqrt(particles[i].vx**2 + particles[i].vy**2)
 
 # ------------------------------------------------------ #
 # ------------------------ MAIN ------------------------ #
@@ -324,7 +338,136 @@ if __name__ == "__main__":
     # --- Initialise elastisity constants.
     xi = 1.0
 
+    # --- PROBLEM 4: speed distribution with two different particles.
+    '''
+    # --- Initialisation of particles.
+    Nparticles = 2*100
+    v0 = 1.0
+    radius = 1.e-3
+    mass = 1.0
+    particles1 = []
+    print('Initialising 1.')
+    for i in range(Nparticles/2):
+        x  = np.random.uniform(0.0+radius, 1.0-radius)
+        y  = np.random.uniform(0.0+radius, 1.0-radius)
+        while (is_overlap(Particle(x, y, v0, v0, radius, mass), particles1)):
+            x  = np.random.uniform(0.0+radius, 1.0-radius)
+            y  = np.random.uniform(0.0+radius, 1.0-radius)
+        theta = np.random.uniform(0.0, 2*np.pi)
+        vx = v0*np.cos(theta)
+        vy = v0*np.sin(theta)
+        particles1.append(Particle(x, y, vx, vy, radius, mass))
+    for i in range(Nparticles/2):
+        x  = np.random.uniform(0.0+radius, 1.0-radius)
+        y  = np.random.uniform(0.0+radius, 1.0-radius)
+        while (is_overlap(Particle(x, y, v0, v0, radius, 4*mass), particles1)):
+            x  = np.random.uniform(0.0+radius, 1.0-radius)
+            y  = np.random.uniform(0.0+radius, 1.0-radius)
+        theta = np.random.uniform(0.0, 2*np.pi)
+        vx = v0*np.cos(theta)
+        vy = v0*np.sin(theta)
+        particles1.append(Particle(x, y, vx, vy, radius, 4*mass))
+
+    # --- Calculate speed of particles.
+    speeds_light = get_speed_vector(particles1[:Nparticles/2])
+    speeds_heavy = get_speed_vector(particles1[Nparticles/2]:)
+
+    # --- Plot initial speed distribution.
+    plot_speed_distribution(speeds_light, 'mixture_light_speed_distribution_initial.png')
+    plot_speed_distribution(speeds_heavy, 'mixture_heavy_speed_distribution_initial.png')
+
+    # --- Run system.
+    print('Starting 1.')
+    particles1 = main(particles1, False)
+
+    # --- Calculate speed of particles.
+    speeds_light = get_speed_vector(particles1[:Nparticles/2])
+    speeds_heavy = get_speed_vector(particles1[Nparticles/2]:)
+
+    # --- Calculate average speed.
+    speeds_avg_light = np.sum(speeds_light)/(Nparticles/2)
+    speeds_avg_heavy = np.sum(speeds_heavy)/(Nparticles/2)
+
+    # --- Calculate average kinetic energy.
+    energy_avg_light = 0.5*mass*np.sum(np.power(speeds_light, 2))/(Nparticles/2)
+    energy_avg_heavy = 0.5*mass*np.sum(np.power(speeds_heavy, 2))/(Nparticles/2)
+
+    # --- Save speeds to file just in case.
+    print('Save speeds to file: ', 'my_light_speeds.dat', 'and', 'my_heavy_speeds.dat'.)
+    fout = open('my_light_speeds.dat', 'ab'); np.savetxt(fout, speeds_light); fout.close()
+    fout = open('my_heavy_speeds.dat', 'ab'); np.savetxt(fout, speeds_heavy); fout.close()
+
+    # --- Plot initial speed distribution.
+    plot_speed_distribution(speeds_light, 'mixture_light_speed_distribution_initial.png')
+    plot_speed_distribution(speeds_heavy, 'mixture_heavy_speed_distribution_initial.png')
+    '''
+
+    # --- PROBLEM 3: speed distribution with two different particles.
+    '''
+    # --- Initialisation of particles.
+    Nparticles = 2*100
+    v0 = 1.0
+    radius = 1.e-3
+    mass = 1.0
+    particles1 = []
+    print('Initialising 1.')
+    for i in range(Nparticles/2):
+        x  = np.random.uniform(0.0+radius, 1.0-radius)
+        y  = np.random.uniform(0.0+radius, 1.0-radius)
+        while (is_overlap(Particle(x, y, v0, v0, radius, mass), particles1)):
+            x  = np.random.uniform(0.0+radius, 1.0-radius)
+            y  = np.random.uniform(0.0+radius, 1.0-radius)
+        theta = np.random.uniform(0.0, 2*np.pi)
+        vx = v0*np.cos(theta)
+        vy = v0*np.sin(theta)
+        particles1.append(Particle(x, y, vx, vy, radius, mass))
+    for i in range(Nparticles/2):
+        x  = np.random.uniform(0.0+radius, 1.0-radius)
+        y  = np.random.uniform(0.0+radius, 1.0-radius)
+        while (is_overlap(Particle(x, y, v0, v0, radius, 4*mass), particles1)):
+            x  = np.random.uniform(0.0+radius, 1.0-radius)
+            y  = np.random.uniform(0.0+radius, 1.0-radius)
+        theta = np.random.uniform(0.0, 2*np.pi)
+        vx = v0*np.cos(theta)
+        vy = v0*np.sin(theta)
+        particles1.append(Particle(x, y, vx, vy, radius, 4*mass))
+
+    # --- Calculate speed of particles.
+    speeds_light = get_speed_vector(particles1[:Nparticles/2])
+    speeds_heavy = get_speed_vector(particles1[Nparticles/2]:)
+
+    # --- Plot initial speed distribution.
+    plot_speed_distribution(speeds_light, 'mixture_light_speed_distribution_initial.png')
+    plot_speed_distribution(speeds_heavy, 'mixture_heavy_speed_distribution_initial.png')
+
+    # --- Run system.
+    print('Starting 1.')
+    particles1 = main(particles1, False)
+
+    # --- Calculate speed of particles.
+    speeds_light = get_speed_vector(particles1[:Nparticles/2])
+    speeds_heavy = get_speed_vector(particles1[Nparticles/2]:)
+
+    # --- Calculate average speed.
+    speeds_avg_light = np.sum(speeds_light)/(Nparticles/2)
+    speeds_avg_heavy = np.sum(speeds_heavy)/(Nparticles/2)
+
+    # --- Calculate average kinetic energy.
+    energy_avg_light = 0.5*mass*np.sum(np.power(speeds_light, 2))/(Nparticles/2)
+    energy_avg_heavy = 0.5*mass*np.sum(np.power(speeds_heavy, 2))/(Nparticles/2)
+
+    # --- Save speeds to file just in case.
+    print('Save speeds to file: ', 'my_light_speeds.dat', 'and', 'my_heavy_speeds.dat'.)
+    fout = open('my_light_speeds.dat', 'ab'); np.savetxt(fout, speeds_light); fout.close()
+    fout = open('my_heavy_speeds.dat', 'ab'); np.savetxt(fout, speeds_heavy); fout.close()
+
+    # --- Plot initial speed distribution.
+    plot_speed_distribution(speeds_light, 'mixture_light_speed_distribution_initial.png')
+    plot_speed_distribution(speeds_heavy, 'mixture_heavy_speed_distribution_initial.png')
+    '''
+
     # --- PROBLEM 2: speed distribution.
+
     # --- Initialisation of particles.
     Nparticles = 2000
     v0 = 1.0
@@ -366,14 +509,30 @@ if __name__ == "__main__":
         vx = v0*np.cos(theta)
         vy = v0*np.sin(theta)
         particles3.append(Particle(x, y, vx, vy, radius, mass))
-    plot_speed_distribution(particles1+particles2+particles3, 'speed_distribution_initial.png')
+
+    # --- Calculate speed of particles.
+    speeds = get_speed_vector(particles1+particles2+particles3)
+
+    # --- Plot initial speed distribution.
+    plot_speed_distribution(speeds, 'speed_distribution_initial.png')
+
+    # --- Run system.
     print('Starting 1.')
     particles1 = main(particles1, False)
     print('Starting 2.')
     particles2 = main(particles2, False)
     print('Starting 3.')
     particles3 = main(particles3, False)
-    plot_speed_distribution(particles1+particles2+particles3, 'speed_distribution_final.png')
+
+    # --- Calculate speed of particles.
+    speeds = get_speed_vector(particles1+particles2+particles3)
+
+    # --- Save speeds to file just in case.
+    print('Save speeds to file: ', 'my_speeds.dat'.)
+    fout = open('my_speeds.dat', 'ab'); np.savetxt(fout, speeds); fout.close()
+
+    # --- Plot final speed distribution.
+    plot_speed_distribution(speeds, 'speed_distribution_final.png')
 
     # --- PROBLEM 1: Calculate angle as a function of impact parameter.
     '''
