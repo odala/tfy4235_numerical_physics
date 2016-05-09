@@ -59,7 +59,7 @@ program main
     !call initialize_random_seed()
 
     ! --- Initialize the magnetic and electric fields.
-    write(*,*) 'Type of field: ', type_of_field
+    write(*,*) 'Type of field: ', typeOfBField
     
     ! --- Make the particles evolve during Nsteps.
     call cpu_time(middle1)
@@ -86,7 +86,7 @@ program main
     deallocate(pos_vel, pos_vel_exact)
 
     ! --- Check for Helmholtz field.
-    if (type_of_field == 'helmholtz') then
+    if (typeOfBField == 3) then     ! helmholtz
         rPos = 0._wp
         zPos = 0._wp
         write(*,*) 'Radial field strength in (0,0,0): ', integrate(r_integrand, 0._wp, 2._wp*pi, 100, method='simpson')

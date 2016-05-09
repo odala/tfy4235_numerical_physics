@@ -30,13 +30,13 @@ Module functions
         Real(wp), Dimension(3)  :: Bfield
         Real(wp)                :: rPos, zPos, theta, radialFieldStrength, axialFieldStrength, orthoradialFieldStrength
         
-        if (type_of_field == 'constant') then
+        if (typeOfBField == 0) then         ! constant
             Bfield = [ 0.0_wp, 0.0_wp, Bz ]
 
-        else if (type_of_field == 'gradient') then
+        else if (typeOfBField == 1) then    ! gradient
             Bfield = [ 0.0_wp, 0.0_wp , Bz + 0.1_wp * xyz(2) ]
 
-        else if (type_of_field == 'curved') then
+        else if (typeOfBField == 2) then    ! curved
             if (xyz(1) > 0) then
                 theta = atan(xyz(2)/xyz(1))
             else
@@ -45,7 +45,7 @@ Module functions
             orthoradialFieldStrength = 1.0_wp
             Bfield = [ -orthoradialFieldStrength*sin(theta), orthoradialFieldStrength*cos(theta), 0.0_wp ]
 
-        else if (type_of_field == 'helmholtz') then
+        else if (typeOfBField == 3) then    ! helmholtz
             rPos = sqrt(xyz(1)**2 + xyz(2)**2)
             zPos = xyz(3)
             radialFieldStrength = integrate(r_integrand, 0._wp, 2._wp*pi, 100, method='simpson')

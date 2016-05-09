@@ -9,7 +9,7 @@ Module readinput
     Subroutine read_input_file(filename)
         Implicit none
         Character(len=*), Intent(in) :: filename
-        Integer                      :: iNparticles, iNsteps, idSteps
+        Integer                      :: iNparticles, iNsteps, idSteps, iBtype, iEtype
         Real(wp)                     :: itimestep, isgn, ix0, iy0, iz0, iu0, iv0, iw0, iBz, iEx, iEy, iEz
 
         ! --- List of names to look for in the input file.
@@ -29,7 +29,9 @@ Module readinput
         iz0,                    &
         iu0,                    &
         iv0,                    &
-        iw0  
+        iw0,                    &
+        iBtype,                 &
+        iEtype  
 
         ! --- Read the input file and assign corresponding values
         !     to named variables.
@@ -53,6 +55,9 @@ Module readinput
         Ex              = iEx
         Ey              = iEy
         Ez              = iEz
+        typeOfBField    = iBtype
+        typeOfEField    = iEtype
+        
                 
         ! --- Calculate values from these parameters
         !if (sgn > 0) then

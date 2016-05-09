@@ -1,18 +1,19 @@
 &PARAMETERS
-iNparticles     = 1,		        ! number of particles
-iNsteps	        = 150000,           ! number of iterations
-idSteps         = 100,              ! difference between saved steps
-itimestep       = 1E-4,	            ! timestep [s]/..
+iNparticles     = 1,	            ! number of particles
+iNsteps	        = 5000,            ! number of iterations
+idSteps         = 10,               ! difference between saved steps
+itimestep       = 1E-2,	            ! timestep [s]/..
 isgn            = 1,                ! radius of the particle [m]/..
-ix0             = 0.0,              ! starting position of particle [m]/..
+ix0             = 6.0,              ! starting position of particle [m]/..
 iy0             = 0.0,              ! starting position of particle [m]/..
 iz0             = 0.0,              ! starting position of particle [m]/..
-iu0             = 1.0,              ! starting velocity of particle [m/s]/..
-iv0             = 0.0,              ! starting velocity of particle [m/s]/..
-iw0             = 0.0,              ! starting velocity of particle [m/s]/..
-iBz              = 1.0,              ! magnetic field strength [T = (N·s)/(C·m]/..
+iu0             = 0.0,              ! starting velocity of particle [m/s]/..
+iv0             = 0.70710678118,              ! starting velocity of particle [m/s]/..
+iw0             = 0.70710678118,              ! starting velocity of particle [m/s]/..
+iBz             = 1.0,              ! magnetic field strength [T = (N·s)/(C·m]/..
 iEx             = 0.0
-iEy             = 0.3,              ! electric field strength [V] /..
-iEz             = 0.0
-
+iEy             = 0.0,              ! electric field strength [V] /..
+iEz             = 0.0,
+iBtype          = 0,                ! 0: constant, 1: gradient, 2: curved, 3: helmholtz
+iEtype          = 0        
 /r
