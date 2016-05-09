@@ -110,11 +110,18 @@ def time_until_collision(particle1, particle2):
         velocity2 = particle2.velocity() - ((1.0+xi)*particle1.mass/(particle1.mass+particle2.mass)*np.dot(dv,dx2)/R**2)*dx2
         return dt, velocity1, velocity2
 
+def is_overlap(particle, particles):
+    for p in particles:
+        distance = np.sqrt((particle.x - p.x)**2 + (particle.y - p.y)**2)
+        if distance < particle.radius + p.radius:
+            return True
+    return False
+
 
 # ------------------------------------------------------ #
 # ------------------------ MAIN ------------------------ #
 # ------------------------------------------------------ #
-def main(b, plotter=False):
+def main(particles, plotter=False):
 
     # --- Initialise square box.
     xmin = 0.0
@@ -125,10 +132,10 @@ def main(b, plotter=False):
     # --- Set start time.
     t0 = 0.0
 
-    # --- Initialisation of particles and collision priority heap.
-    particles = [Particle(0.5, 0.5, 0.0, 0.0, 1.e-1, 1.e6), Particle(0.1, 0.5+b, 1.0, 0.0, 1.e-3, 1.e0)]
     print('Start1: ', particles[0].position(), particles[0].velocity(), particles[0].radius, particles[0].mass)
     print('Start2: ', particles[1].position(), particles[1].velocity(), particles[1].radius, particles[1].mass)
+    
+    # --- Initialise priority queue.
     collisions = []
     for i in range (len(particles)):
 
@@ -174,8 +181,8 @@ def main(b, plotter=False):
     b = particles[1].colcount
     
     # --- Loop:
-    #while(collisions):
-    for loop in range(1):
+    while(collisions):
+    #for loop in range(1):
 
         # --- Move all particles forward in time (straight lines, constant 
         #     velocity) until the earliest collision.
@@ -201,6 +208,7 @@ def main(b, plotter=False):
         #print('2: ', particles[1].position(), particles[1].velocity())
         #print(particles[0].colcount, particles[1].colcount)
 
+        # --- Update priority queue.
         for i in involved:
 
             # Calculate if and when the particle(s) involved in the collision 
@@ -219,14 +227,19 @@ def main(b, plotter=False):
                 temp = t0 + dt
                 heappush(collisions, (temp, np.array([i]), np.array([particles[i].colcount]), np.array([v1])))
 
+        def is_colcountOK(involved, particles, colcount):
+            for i in range(len(involved)):
+                if colcount[i] != particles[involved[i]].colcount:
+                    return False
+            return True
+
+
         # --- Identify the earliest collision.
         t, involved, colcount, new_velocities = heappop(collisions)
-        for i in range(len(involved)):
-            while colcount[i] != particles[involved[i]].colcount:
-                #print('INVALID!')
-                t, involved, colcount, new_velocities = heappop(collisions)
+        while not (is_colcountOK(involved, particles, colcount)):
+            #print('INVALID!')
+            t, involved, colcount, new_velocities = heappop(collisions)
         #print('Collision at t = ', t)
-        
 
         # --- Having resolved the collision, identify the new earliest collision,
         #     and check if it is still valid (if the particle(s) involved have 
@@ -251,9 +264,49 @@ def main(b, plotter=False):
     #while collisions:
     #    print(heappop(collisions))
 
+    # --- PROBLEM 1: Calculate angle of particle 1.
+    angle = np.arccos(np.dot(np.array([1.0,0.0]), particles[1].velocity())/1.0/np.sqrt(np.dot(particles[1].velocity(), particles[1].velocity())))
+    return angle*(180/np.pi)
+
 if __name__ == "__main__":
 
     # --- Initialise elastisity constants.
     xi = 1.0
 
-    main(b, True)
+    # --- Initialisation of particles.
+    Nparticles = 10
+    v0 = 1.0
+    radius = 1.e-1
+    mass = 1.0
+    particles = []
+    for i in range(Nparticles):
+        x  = np.random.uniform(0.0+radius, 1.0-radius)
+        y  = np.random.uniform(0.0+radius, 1.0-radius)
+        while (is_overlap(Particle(x, y, v0, v0, radius, mass), particles)):
+            x  = np.random.uniform(0.0+radius, 1.0-radius)
+            y  = np.random.uniform(0.0+radius, 1.0-radius)
+        theta = np.random.uniform(0.0, 2*np.pi)
+        vx = v0*np.cos(theta)
+        vy = v0*np.sin(theta)
+        particles.append(Particle(x, y, vx, vy, radius, mass))
+    main(particles, True)
+
+    # --- PROBLEM 1.
+    '''
+    # in main: run loop only once
+    Nb = 1000
+    angles = np.zeros(Nb)
+    i=0
+    bs = np.linspace(0.0, 0.101, Nb)
+    for i in range(Nb):
+        particles = [Particle(0.5, 0.5, 0.0, 0.0, 1.e-1, 1.e6), Particle(0.1, 0.5+bs[i], 1.0, 0.0, 1.e-3, 1.e0)]
+        angles[i] = main(particles, False)
+    angles[-1] = 0.0
+
+    plt.figure()
+    plt.plot(np.divide(bs, 0.101), angles, 'bo', label='empty')
+    plt.axis([0.0, 1.0, 0.0, 180.0])
+    plt.tick_params(axis='both', which='major', labelsize=15)
+    plt.xlabel('Impact parameter $b$ [m/$R_{12}$]', fontsize=20); plt.ylabel('Scattering angle [deg]', fontsize=20)    
+    plt.savefig('impact_parameter_02.png')
+    plt.show()'''
