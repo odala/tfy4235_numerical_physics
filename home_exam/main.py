@@ -62,7 +62,20 @@ class Particle():
     # --- Functions.
     def update(self, dt):
         self.x = self.x + dt*self.vx
-        self.y = self.y + dt*self.vy        
+        self.y = self.y + dt*self.vy
+
+# --- Class: Collision
+class Collision():
+    def __init__(self, time, involved, colcount, new_velocities):  
+        self.time = time
+        self.involved = involved
+        self.colcount = colcount
+        self.new_velocities = new_velocities
+
+    def __cmp__(self, other):
+        return -1.0*(self.time < other.time) + 1.0*(self.time >= other.time)
+
+    #Collision(temp, np.array([i, j]), np.array([particles[i].colcount, particles[j].colcount]), np.array([v1, v2]))      
    
 # --- Function: Calculate time until collision with a wall.
 #     input : Particle
@@ -117,6 +130,50 @@ def is_overlap(particle, particles):
             return True
     return False
 
+def plot_speed_distribution(particles, filename):
+    
+    # --- Calculate speed of particles.
+    Nparticles = len(particles)
+    speeds = np.zeros(Nparticles)
+    for i in range(Nparticles):
+        speeds[i] = np.sqrt(particles[i].vx**2 + particles[i].vy**2)
+
+    # --- Save speeds to file just in case.
+    fout = open('my_speeds.dat', 'ab')
+    np.savetxt(fout, speeds)
+    fout.close()
+
+    # --- Divide data into Nbins.
+    Nbins = 101
+    minimum = -1.0; maximum = 3.0
+    hist, bins = np.histogram(speeds, bins=Nbins, range=(minimum, maximum), normed=True)
+    bin_values = (bins[:-1] + bins[1:]) / 2
+
+    # --- Plot histogram.
+    histogram = plt.figure()
+    #plt.scatter(bin_values, hist, s=50, facecolors='none', edgecolors='r')
+    plt.bar(bin_values, hist, width=bins[1]-bins[0], color='blue')
+
+    plt.xlabel(r'Speeds $v$ [m/s]', fontsize=20)
+    plt.ylabel(r'$P(v)$', fontsize=20)
+    plt.tick_params(axis='both', which='major', labelsize=15)
+    plt.axis([minimum, maximum, 0.0, 1.1*max(hist)])
+
+    # --- Saving figure.
+    plt.tight_layout()
+    plt.savefig(filename)
+
+def calculate_avg_colcount(particles):
+    avg = 0.0
+    for p in particles:
+        avg += p.colcount
+    return avg/len(particles)
+
+def is_colcountOK(involved, particles, colcount):
+    for i in range(len(involved)):
+        if colcount[i] != particles[involved[i]].colcount:
+            return False
+    return True
 
 # ------------------------------------------------------ #
 # ------------------------ MAIN ------------------------ #
@@ -124,16 +181,16 @@ def is_overlap(particle, particles):
 def main(particles, plotter=False):
 
     # --- Initialise square box.
-    xmin = 0.0
+    '''xmin = 0.0
     xmax = 1.0
     ymin = 0.0
-    ymax = 1.0
+    ymax = 1.0'''
 
     # --- Set start time.
     t0 = 0.0
 
-    print('Start1: ', particles[0].position(), particles[0].velocity(), particles[0].radius, particles[0].mass)
-    print('Start2: ', particles[1].position(), particles[1].velocity(), particles[1].radius, particles[1].mass)
+    #print('Start1: ', particles[0].position(), particles[0].velocity(), particles[0].radius, particles[0].mass)
+    #print('Start2: ', particles[1].position(), particles[1].velocity(), particles[1].radius, particles[1].mass)
     
     # --- Initialise priority queue.
     collisions = []
@@ -146,14 +203,16 @@ def main(particles, plotter=False):
             dt, v1, v2 = time_until_collision(particles[i], particles[j])
             if dt < float('inf'):
                 temp = t0 + dt
-                heappush(collisions, (temp, np.array([i, j]), np.array([particles[i].colcount, particles[j].colcount]), np.array([v1, v2])))
+                heappush(collisions, Collision(temp, np.array([i, j]), np.array([particles[i].colcount, particles[j].colcount]), np.array([v1, v2])))
 
         # Calculate when particle will collide with a wall,
         # and store the collision times.
         dt, v1 = time_until_wall_collision(particles[i])
         if dt < float('inf'):
             temp = t0 + dt
-            heappush(collisions, (temp, np.array([i]), np.array([particles[i].colcount]), np.array([v1])))
+            heappush(collisions, Collision(temp, np.array([i]), np.array([particles[i].colcount]), np.array([v1])))
+
+    avg_colcount = calculate_avg_colcount(particles)
 
     # --- Calculate initial total energy.
     energy0 = 0.0
@@ -161,8 +220,9 @@ def main(particles, plotter=False):
         energy0 += 0.5*p.mass*(p.vx**2 + p.vy**2)
 
     # --- Identify the earliest collision.
-    t, involved, colcount, new_velocities = heappop(collisions)
-    #print('First collision at t = ', t)
+    #t, involved, colcount, new_velocities = heappop(collisions)
+    collision = heappop(collisions)
+    print('First collision at t = ', collision.time)
 
     # --- Plot start positions of all particles.
     if plotter == True:
@@ -181,19 +241,22 @@ def main(particles, plotter=False):
     b = particles[1].colcount
     
     # --- Loop:
-    while(collisions):
+    while(collisions and avg_colcount < 100):
     #for loop in range(1):
 
         # --- Move all particles forward in time (straight lines, constant 
         #     velocity) until the earliest collision.
         for i in range (len(particles)):
-            particles[i].update(t - t0)
+            particles[i].update(collision.time - t0)
 
         # --- For the particle(s) involved in the collision, calculate new 
         #     velocities.
-        for i in range(len(involved)):
-            particles[involved[i]].increment_colcount()
-            particles[involved[i]].set_velocity(new_velocities[i])
+        for i in range(len(collision.involved)):
+            particles[collision.involved[i]].increment_colcount()
+            particles[collision.involved[i]].set_velocity(collision.new_velocities[i])
+
+        avg_colcount = calculate_avg_colcount(particles)
+        #print(avg_colcount)
 
         # --- Calculate total energy.
         energy = 0.0
@@ -202,14 +265,14 @@ def main(particles, plotter=False):
         #print('Conservation of energy: ', energy/energy0)
 
         # --- Set new time.
-        t0 = t
+        t0 = collision.time
 
         #print('1: ', particles[0].position(), particles[0].velocity())
         #print('2: ', particles[1].position(), particles[1].velocity())
         #print(particles[0].colcount, particles[1].colcount)
 
         # --- Update priority queue.
-        for i in involved:
+        for i in collision.involved:
 
             # Calculate if and when the particle(s) involved in the collision 
             # will collide with all other particles, and store the collision times.
@@ -218,27 +281,20 @@ def main(particles, plotter=False):
                     dt, v1, v2 = time_until_collision(particles[i], particles[j])
                     if dt < float('inf'):
                         temp = t0 + dt
-                        heappush(collisions, (temp, np.array([i, j]), np.array([particles[i].colcount, particles[j].colcount]), np.array([v1, v2])))
+                        heappush(collisions, Collision(temp, np.array([i, j]), np.array([particles[i].colcount, particles[j].colcount]), np.array([v1, v2])))
 
             # Calculate when the particle(s) involved in the collision
             # will collide with a wall, and store the collision times.
             dt, v1 = time_until_wall_collision(particles[i])
             if dt < float('inf'):
                 temp = t0 + dt
-                heappush(collisions, (temp, np.array([i]), np.array([particles[i].colcount]), np.array([v1])))
-
-        def is_colcountOK(involved, particles, colcount):
-            for i in range(len(involved)):
-                if colcount[i] != particles[involved[i]].colcount:
-                    return False
-            return True
-
+                heappush(collisions, Collision(temp, np.array([i]), np.array([particles[i].colcount]), np.array([v1])))
 
         # --- Identify the earliest collision.
-        t, involved, colcount, new_velocities = heappop(collisions)
-        while not (is_colcountOK(involved, particles, colcount)):
+        collision = heappop(collisions)
+        while not (is_colcountOK(collision.involved, particles, collision.colcount)):
             #print('INVALID!')
-            t, involved, colcount, new_velocities = heappop(collisions)
+            collision = heappop(collisions)
         #print('Collision at t = ', t)
 
         # --- Having resolved the collision, identify the new earliest collision,
@@ -261,37 +317,65 @@ def main(particles, plotter=False):
             plt.draw()
             time.sleep(0.01)
 
-    #while collisions:
-    #    print(heappop(collisions))
-
-    # --- PROBLEM 1: Calculate angle of particle 1.
-    angle = np.arccos(np.dot(np.array([1.0,0.0]), particles[1].velocity())/1.0/np.sqrt(np.dot(particles[1].velocity(), particles[1].velocity())))
-    return angle*(180/np.pi)
+    return particles
 
 if __name__ == "__main__":
 
     # --- Initialise elastisity constants.
     xi = 1.0
 
+    # --- PROBLEM 2: speed distribution.
     # --- Initialisation of particles.
-    Nparticles = 10
+    Nparticles = 2000
     v0 = 1.0
-    radius = 1.e-1
+    radius = 1.e-3
     mass = 1.0
-    particles = []
+    particles1 = []
+    print('Initialising 1.')
     for i in range(Nparticles):
         x  = np.random.uniform(0.0+radius, 1.0-radius)
         y  = np.random.uniform(0.0+radius, 1.0-radius)
-        while (is_overlap(Particle(x, y, v0, v0, radius, mass), particles)):
+        while (is_overlap(Particle(x, y, v0, v0, radius, mass), particles1)):
             x  = np.random.uniform(0.0+radius, 1.0-radius)
             y  = np.random.uniform(0.0+radius, 1.0-radius)
         theta = np.random.uniform(0.0, 2*np.pi)
         vx = v0*np.cos(theta)
         vy = v0*np.sin(theta)
-        particles.append(Particle(x, y, vx, vy, radius, mass))
-    main(particles, True)
+        particles1.append(Particle(x, y, vx, vy, radius, mass))
+    print('Initialising 2.')
+    particles2 = []
+    for i in range(Nparticles):
+        x  = np.random.uniform(0.0+radius, 1.0-radius)
+        y  = np.random.uniform(0.0+radius, 1.0-radius)
+        while (is_overlap(Particle(x, y, v0, v0, radius, mass), particles2)):
+            x  = np.random.uniform(0.0+radius, 1.0-radius)
+            y  = np.random.uniform(0.0+radius, 1.0-radius)
+        theta = np.random.uniform(0.0, 2*np.pi)
+        vx = v0*np.cos(theta)
+        vy = v0*np.sin(theta)
+        particles2.append(Particle(x, y, vx, vy, radius, mass))
+    print('Initialising 3.')
+    particles3 = []
+    for i in range(Nparticles):
+        x  = np.random.uniform(0.0+radius, 1.0-radius)
+        y  = np.random.uniform(0.0+radius, 1.0-radius)
+        while (is_overlap(Particle(x, y, v0, v0, radius, mass), particles3)):
+            x  = np.random.uniform(0.0+radius, 1.0-radius)
+            y  = np.random.uniform(0.0+radius, 1.0-radius)
+        theta = np.random.uniform(0.0, 2*np.pi)
+        vx = v0*np.cos(theta)
+        vy = v0*np.sin(theta)
+        particles3.append(Particle(x, y, vx, vy, radius, mass))
+    plot_speed_distribution(particles1+particles2+particles3, 'speed_distribution_initial.png')
+    print('Starting 1.')
+    particles1 = main(particles1, False)
+    print('Starting 2.')
+    particles2 = main(particles2, False)
+    print('Starting 3.')
+    particles3 = main(particles3, False)
+    plot_speed_distribution(particles1+particles2+particles3, 'speed_distribution_final.png')
 
-    # --- PROBLEM 1.
+    # --- PROBLEM 1: Calculate angle as a function of impact parameter.
     '''
     # in main: run loop only once
     Nb = 1000
@@ -300,7 +384,9 @@ if __name__ == "__main__":
     bs = np.linspace(0.0, 0.101, Nb)
     for i in range(Nb):
         particles = [Particle(0.5, 0.5, 0.0, 0.0, 1.e-1, 1.e6), Particle(0.1, 0.5+bs[i], 1.0, 0.0, 1.e-3, 1.e0)]
-        angles[i] = main(particles, False)
+        particles = main(particles, False)
+        angle = np.arccos(np.dot(np.array([1.0,0.0]), particles[1].velocity())/1.0/np.sqrt(np.dot(particles[1].velocity(), particles[1].velocity())))
+        angles[i] = angle*(180/np.pi)
     angles[-1] = 0.0
 
     plt.figure()
@@ -310,3 +396,12 @@ if __name__ == "__main__":
     plt.xlabel('Impact parameter $b$ [m/$R_{12}$]', fontsize=20); plt.ylabel('Scattering angle [deg]', fontsize=20)    
     plt.savefig('impact_parameter_02.png')
     plt.show()'''
+ 
+
+    # --- Test of heapq.
+    items = [(3, "Clear drains"), (4, "Feed cat"), (5, "Make tea"), (1, "Solve RC tasks"), (2, "Tax return")]
+    heappush(items, (3, "test"))
+    heapify(items)
+
+    while items:
+        print(heappop(items))
