@@ -2,6 +2,7 @@
 # from myIterativeMethods import explicit_euler, implicit_euler, ...
 
 import numpy as np
+import copy
 from matplotlib import pyplot as plt
 from matplotlib import rc
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
@@ -191,20 +192,65 @@ def get_speed_vector(particles):
         speeds[i] = np.sqrt(particles[i].vx**2 + particles[i].vy**2)
     return speeds
 
-def run(particles, start_time, stop_colcount, plotter=False):
+# --- Function: Calculates kinetic energy of all particles.
+#     input : list of Particles.
+#     output: list of kinetic energies.
+def get_kinetic_energy_array(particles):
+    Nparticles = len(particles)
+    kinetic_energies = np.zeros(Nparticles)
+    for i in range(Nparticles):
+        kinetic_energies[i] = 0.5*particles[i].mass*(particles[i].vx**2 + particles[i].vy**2)
+    return kinetic_energies
 
-    # --- Initialise square box.
-    '''xmin = 0.0
-    xmax = 1.0
-    ymin = 0.0
-    ymax = 1.0'''
+def get_average_kinetic_energy(particles):
+    return sum(get_kinetic_energy_array(particles))/Nparticles
+
+def get_total_kinetic_energy(particles):
+    return sum(get_kinetic_energy_array(particles))
+
+# --- Function: Calculated the size of the crater by comparing how
+#     many of the particles that have moved more than one radius 
+#     away from its initial starting position.
+#     input : list of Particles
+#     output: the crater size as a number between 0.0 and 1.0
+#               - 0.0 if none of the particles got moved
+#               - 1.0 if all of the particles got moved
+def get_crater_size(initial_particles, final_particles):
+    affected = 0.0
+    for i in range(len(initial_particles)):
+        ip = initial_particles[i]
+        fp = final_particles[i]
+        distance = np.sqrt((fp.x - ip.x)**2 + (fp.y - ip.y)**2)
+        if distance > ip.radius:
+            affected += 1.0
+    return affected/len(initial_particles)
+
+# --- Function: Plot the particles.
+#     input : list of Particles
+#     output: none, but save a figure of the particles.
+def plot_particles(particles, filename):
+    fig = plt.figure(figsize = (10,10))
+    for p in particles:
+        if p.radius < 1.e-2:
+            c = 'b'
+        else:
+            c = 'r'
+        circle = plt.Circle(p.position(), p.radius, color=c)
+        fig.gca().add_artist(circle)
+    
+    # --- Saving figure.
+    plt.tick_params(axis='both', which='major', labelsize=15)
+    plt.tight_layout()
+    plt.savefig(filename)
+
+# --- Function: Run the event-driven simulation of particles.
+#     input : 
+#     output: 
+def run(particles, start_time, stop_colcount, plotter=False):
 
     # --- Set start time.
     t0 = start_time
 
-    #print('Start1: ', particles[0].position(), particles[0].velocity(), particles[0].radius, particles[0].mass)
-    #print('Start2: ', particles[1].position(), particles[1].velocity(), particles[1].radius, particles[1].mass)
-    
     # --- Initialise priority queue.
     collisions = []
     for i in range (len(particles)):
@@ -212,7 +258,6 @@ def run(particles, start_time, stop_colcount, plotter=False):
         # Calculate if and when particle will collide with all other particles,
         # and store the collision times.
         for j in range(i+1, len(particles)):
-            #print(i, j)
             dt, v1, v2 = time_until_collision(particles[i], particles[j])
             if dt < float('inf'):
                 temp = t0 + dt
@@ -233,9 +278,7 @@ def run(particles, start_time, stop_colcount, plotter=False):
         energy0 += 0.5*p.mass*(p.vx**2 + p.vy**2)
 
     # --- Identify the earliest collision.
-    #t, involved, colcount, new_velocities = heappop(collisions)
     collision = heappop(collisions)
-    #print('First collision at t = ', collision.time)
 
     # --- Plot start positions of all particles.
     if plotter == True:
@@ -250,8 +293,6 @@ def run(particles, start_time, stop_colcount, plotter=False):
             fig.gca().add_artist(circle)
         plt.draw()
         time.sleep(0.01)
-    a = particles[0].colcount
-    b = particles[1].colcount
     
     # --- Loop:
     while(collisions and avg_colcount < stop_colcount):
@@ -262,29 +303,25 @@ def run(particles, start_time, stop_colcount, plotter=False):
         for i in range (len(particles)):
             particles[i].update(collision.time - t0)
 
-        # --- For the particle(s) involved in the collision, calculate new 
-        #     velocities.
+        # --- Set new time.
+        t0 = collision.time
+
+        # --- For the particle(s) involved in the collision, increment
+        #     colcount and calculate new velocities.
         for i in range(len(collision.involved)):
             particles[collision.involved[i]].increment_colcount()
             particles[collision.involved[i]].set_velocity(collision.new_velocities[i])
-
+        
+        # --- Update average colcount.
         avg_colcount = calculate_avg_colcount(particles)
-        #print(avg_colcount)
 
         # --- Calculate total energy.
         energy = 0.0
         for p in particles:
             energy += 0.5*p.mass*(p.vx**2 + p.vy**2)
-        #print('Conservation of energy: ', energy/energy0)
+        #print('Conservation of energy: ', energy/energy0)        
 
-        # --- Set new time.
-        t0 = collision.time
-
-        #print('1: ', particles[0].position(), particles[0].velocity())
-        #print('2: ', particles[1].position(), particles[1].velocity())
-        #print(particles[0].colcount, particles[1].colcount)
-
-        # --- Update priority queue.
+        # --- Update priority queue for the particle(s) involved in the collision.
         for i in collision.involved:
 
             # Calculate if and when the particle(s) involved in the collision 
@@ -303,19 +340,11 @@ def run(particles, start_time, stop_colcount, plotter=False):
                 temp = t0 + dt
                 heappush(collisions, Collision(temp, np.array([i]), np.array([particles[i].colcount]), np.array([v1])))
 
-        # --- Identify the earliest collision.
+        # --- Identify the new earliest collision, and check if it is still valid. 
+        #     If the collision is invalid, discard it and move to the next earliest, and so on.
         collision = heappop(collisions)
         while not (is_colcountOK(collision.involved, particles, collision.colcount)):
-            #print('INVALID!')
             collision = heappop(collisions)
-        #print('Collision at t = ', t)
-
-        # --- Having resolved the collision, identify the new earliest collision,
-        #     and check if it is still valid (if the particle(s) involved have 
-        #     collided with something since the collision was calculated, it is 
-        #     no longer valid). If the collision is invalid, discard it and move
-        #     to the next earliest. Once a valid collision is found, repeat the 
-        #     steps in the loop.
 
         # --- Plot current positions of particles.
         if plotter == True:
@@ -333,27 +362,29 @@ def run(particles, start_time, stop_colcount, plotter=False):
     return particles, t0
 
 def problem1():
-    # in run: run loop only once
+    # in run(): run loop only once
     stop_colcount = 0.5
+    start_time = 0.0
 
     Nb = 1000
     angles = np.zeros(Nb)
-    i=0
-    bs = np.linspace(0.0, 0.101, Nb)
-    for i in range(Nb):
-        particles = [Particle(0.5, 0.5, 0.0, 0.0, 1.e-1, 1.e6), Particle(0.1, 0.5+bs[i], 1.0, 0.0, 1.e-3, 1.e0)]
-        particles, time = run(particles, 0.0, stop_colcount, False)
+    for i, b in enumerate(np.linspace(0.0, 0.101, Nb)):
+        particles = [Particle(0.5, 0.5, 0.0, 0.0, 1.e-1, 1.e6), Particle(0.1, 0.5+b, 1.0, 0.0, 1.e-3, 1.e0)]
+        particles, time = run(particles, start_time, stop_colcount)
         angle = np.arccos(np.dot(np.array([1.0,0.0]), particles[1].velocity())/1.0/np.sqrt(np.dot(particles[1].velocity(), particles[1].velocity())))
         angles[i] = angle*(180/np.pi)
     angles[-1] = 0.0
 
+    # --- Plot scattering angle as a function of impact parameter.
     plt.figure()
     plt.plot(np.divide(bs, 0.101), angles, 'bo', label='empty')
     plt.axis([0.0, 1.0, 0.0, 180.0])
     plt.tick_params(axis='both', which='major', labelsize=15)
-    plt.xlabel('Impact parameter $b$ [m/$R_{12}$]', fontsize=20); plt.ylabel('Scattering angle [deg]', fontsize=20)    
+    plt.xlabel('Impact parameter $b$ [m/$R_{12}$]', fontsize=20); plt.ylabel('Scattering angle [deg]', fontsize=20)
+
+    # --- Saving figure.
+    plt.tight_layout()
     plt.savefig('impact_parameter_02.png')
-    plt.show()
 
 def problem2():
     # --- Initialisation of particles.
@@ -490,7 +521,7 @@ def problem3():
 
     # --- Calculate average kinetic energy.
     energy_avg_light = 0.5*mass*np.sum(np.power(speeds_light, 2))/(len(speeds_light))
-    energy_avg_heavy = 0.5*mass*np.sum(np.power(speeds_heavy, 2))/(len(speeds_heavy))
+    energy_avg_heavy = 0.5*4*mass*np.sum(np.power(speeds_heavy, 2))/(len(speeds_heavy))
     print('Average kinetic energy: ', energy_avg_light, energy_avg_heavy)
 
     # --- Plot final speed distribution.
@@ -501,7 +532,7 @@ def problem4():
 
     # --- Initialisation of particles.
     print('Initialising 1.')
-    Nparticles = 2*1000
+    Nparticles = 2*500
     v0 = 1.0
     radius = 1.e-3
     mass = 1.0
@@ -532,14 +563,14 @@ def problem4():
     speeds_heavy = get_speed_vector(particles[Nparticles/2:])
 
     # --- Initialise time and kinetic energy arrays.
-    Nsamples = 100
+    Nsamples = 150
     times = np.zeros(Nsamples); energy_avg_light = np.zeros(Nsamples); energy_avg_heavy = np.zeros(Nsamples)
     times[0] = 0.0
     energy_avg_light[0] = 0.5*mass*np.sum(np.power(speeds_light, 2))/(len(speeds_light))
-    energy_avg_heavy[0] = 0.5*mass*np.sum(np.power(speeds_heavy, 2))/(len(speeds_heavy))
+    energy_avg_heavy[0] = 0.5*4*mass*np.sum(np.power(speeds_heavy, 2))/(len(speeds_heavy))
 
     # --- Run system.
-    for i, stop_colcount in enumerate(np.linspace(1.0, 20, Nsamples-1)):#enumerate(np.logspace(0.0, 1.0, Nsamples-1)):
+    for i, stop_colcount in enumerate(np.linspace(2/Nparticles, 20, Nsamples-1)):#enumerate(np.logspace(0.0, 1.0, Nsamples-1)):
         print(i+1)
         particles, times[i+1] = run(particles, times[i], stop_colcount, False)
 
@@ -549,35 +580,107 @@ def problem4():
 
         # --- Calculate average kinetic energy.
         energy_avg_light[i+1] = 0.5*mass*np.sum(np.power(speeds_light, 2))/(len(speeds_light))
-        energy_avg_heavy[i+1] = 0.5*mass*np.sum(np.power(speeds_heavy, 2))/(len(speeds_heavy))
+        energy_avg_heavy[i+1] = 0.5*4*mass*np.sum(np.power(speeds_heavy, 2))/(len(speeds_heavy))
 
     # --- Plot development of kinetic energy over time.
     fig = plt.figure()
-    plt.scatter(times, energy_avg_light, s=50, facecolors='none', edgecolors='b', label='Light particles $m=m_0$')
-    plt.scatter(times, energy_avg_heavy, s=50, facecolors='none', edgecolors='r', label='Heavy particles $m=4m_0$')
+    plt.scatter(times, energy_avg_light, s=50, facecolors='none', edgecolors='b', label='Light particles')
+    plt.scatter(times, energy_avg_heavy, s=50, facecolors='none', edgecolors='r', label='Heavy particles')
+    plt.scatter(times, (energy_avg_light+energy_avg_heavy)/2, s=25, facecolors='none', edgecolors='g', label='All particles')
     #plt.plot(times, energy_avg_light, label='Light particles $m=m_0$')
     #plt.plot(times, energy_avg_heavy, label='Heavy particles $m=4m_0$')
     plt.xlabel(r'Time $t$', fontsize=20)
     plt.ylabel(r'Kinetic energy $E_k$', fontsize=20)
-    plt.legend(loc='upper left')
+    plt.legend(loc='upper right')
     plt.tick_params(axis='both', which='major', labelsize=15)
-    plt.axis([min(times), max(times), 0.9*min(energy_avg_heavy), 1.1*max(energy_avg_light)])
+    plt.axis([min(times), max(times), 0.9*min(min(energy_avg_light),min(energy_avg_heavy)), 1.1*max(max(energy_avg_light), max(energy_avg_heavy))])
 
     # --- Saving figure.
     plt.tight_layout()
     plt.savefig('kinetic_energy.png')
 
 def problem5():
-    print('Hei')
-    
 
+    # --- Initialisation of wall of particles in (0.0, 1.0)x(0.0, 0.5).
+    print('Initialising particles.')
+    Nparticles = 5000
+    radius1 = 4.e-3 #np.sqrt(0.5*0.5/(Nparticles*np.pi)) #
+    mass1 = 1.0
+    initial_particles = []
+    for i in range(Nparticles/2):
+        x  = np.random.uniform(0.0+radius1, 1.0-radius1)
+        y  = np.random.uniform(0.0+radius1, 0.5-radius1)
+        while (is_overlap(Particle(x, y, 0.0, 0.0, radius1, mass1), initial_particles)):
+            x  = np.random.uniform(0.0+radius1, 1.0-radius1)
+            y  = np.random.uniform(0.0+radius1, 0.5-radius1)
+        initial_particles.append(Particle(x, y, 0.0, 0.0, radius1, mass1))
+
+    # --- Append the projectile with larger mass and larger radius.
+    radius2 = 5*radius1
+    mass2 = 25*mass1
+    v0 = 5.0
+    initial_particles.append(Particle(0.5, 0.75, 0, -v0, radius2, mass2))
+
+    # --- Plot initial positions of all particles.
+    plot_particles(initial_particles, 'crater_formation_initial.png')
+
+    # --- Run the simulation several times to get a
+    #     parameter scan of the mass of the projectile.
+    Nfactors = 10
+    crater_size = np.zeros(Nfactors)
+    factors = np.linspace(1, 30, Nfactors)
+    for i, f in enumerate(factors):
+        print('Run for mass of projectile ', f, ' times bigger than the mass of the smaller particles.')
+        particles = copy.deepcopy(initial_particles)
+        particles[-1].mass = f*mass1
+
+        # --- Calculate intial energy.
+        initial_energy = get_total_kinetic_energy(particles)
+        energy = initial_energy
+
+        # --- Plot initial positions of all particles.
+        plot_particles(initial_particles, 'crater_formation_initial' + str(i) + '.png')
+
+        # --- Run simulation until only 10 % of the initial energy remains.
+        stop_colcount = 3.0
+        time = 0.0
+        while (energy/initial_energy > 0.1):
+            particles, time = run(particles, time, stop_colcount, False)
+
+            # --- Calculate total energy.
+            energy = get_total_kinetic_energy(particles)
+            print('Fraction of energy left: ', energy/initial_energy)
+            stop_colcount += 1.e-1
+
+        # --- Plot final positions of all particles.
+        plot_particles(particles, 'crater_formation_final' + str(i) + '.png')
+
+        # --- Calculate size of crater.
+        crater_size[i] = get_crater_size(initial_particles[:Nparticles], particles[:Nparticles])
+
+        # --- Save crater size and corresponding mass factor to file (just in case).
+        fout = open('crater_size_vs_mass.out','ab'); np.savetxt(fout, np.atleast_2d(np.array([f, crater_size[i]]))); fout.close()
+
+    # --- Plot size of crater as a function of mass.
+    fig = plt.figure()
+    plt.scatter(factors, crater_size, s=50, facecolors='none', edgecolors='b')
+    plt.xlabel(r'Mass of projectile $M$ [kg/mass of small particles] ', fontsize=20)
+    plt.ylabel(r'Crater size', fontsize=20)
+    plt.tick_params(axis='both', which='major', labelsize=15)
+    #plt.axis([min(factors), max(factors), 0.9*min(crater_size), 1.1*max(crater_size)])
+
+    # --- Saving figure.
+    plt.tight_layout()
+    plt.savefig('crater_size_vs_mass_of_projectile.png')
+
+    
 # ---------------------------------------------- #
 # -------------------- MAIN -------------------- #
 # ---------------------------------------------- #
 if __name__ == "__main__":
 
     # --- Initialise elastisity constants.
-    xi = 1.0
+    xi = 0.5
 
     # --- PROBLEM 1: Calculate angle as a function of impact parameter.
     #problem1()
@@ -594,13 +697,6 @@ if __name__ == "__main__":
     # --- PROBLEM 5: Crater formation.
     problem5()
 
-    
-
-
-   
-
-    
- 
 
     # --- Test of heapq.
     '''items = [(3, "Clear drains"), (4, "Feed cat"), (5, "Make tea"), (1, "Solve RC tasks"), (2, "Tax return")]
